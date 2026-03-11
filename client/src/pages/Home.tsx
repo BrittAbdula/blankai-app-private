@@ -142,9 +142,11 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 // ─── Processing Complete Results Panel ────────────────────────────────────────
 function ProcessingResults({
   results,
+  filePreviews,
   onReset,
 }: {
   results: ProcessedImageResult[];
+  filePreviews: string[];
   onReset: () => void;
 }) {
   const totalPixelsModified = results.reduce((s, r) => s + r.pixelsModified, 0);
@@ -154,6 +156,7 @@ function ProcessingResults({
   const avgQuality = Math.round(
     results.reduce((s, r) => s + r.quality, 0) / results.length
   );
+  const [expanded, setExpanded] = useState<number | null>(null);
 
   const handleDownloadAll = () => {
     results.forEach((r) => {
@@ -172,10 +175,16 @@ function ProcessingResults({
   };
 
   return (
-    <div className="border border-border rounded-xl overflow-hidden bg-card">
+    <div
+      className="border border-border rounded-xl overflow-hidden bg-card"
+      style={{ animation: "fadeInUp 0.4s ease both" }}
+    >
       {/* Header */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-border">
-        <div className="w-8 h-8 rounded-full bg-cyan/10 border border-cyan/30 flex items-center justify-center">
+        <div
+          className="w-8 h-8 rounded-full bg-cyan/10 border border-cyan/30 flex items-center justify-center"
+          style={{ animation: "scaleIn 0.5s cubic-bezier(0.175,0.885,0.32,1.275) 0.1s both" }}
+        >
           <CheckCircle2 className="w-4 h-4 text-cyan" />
         </div>
         <div>
@@ -191,56 +200,130 @@ function ProcessingResults({
       {/* Aggregate Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-5">
         {[
-          {
-            icon: Download,
-            value: results.length.toString(),
-            label: "Images Processed",
-            color: "text-cyan",
-          },
-          {
-            icon: HardDrive,
-            value: `${avgSizeReduction > 0 ? avgSizeReduction : "<1"}%`,
-            label: "Size Reduction",
-            color: "text-cyan",
-          },
-          {
-            icon: ZapIcon,
-            value: formatCount(totalPixelsModified),
-            label: "Pixels Modified",
-            color: "text-cyan",
-          },
-          {
-            icon: Target,
-            value: `${avgQuality}%`,
-            label: "Avg. Quality",
-            color: "text-cyan",
-          },
-        ].map(({ icon: Icon, value, label, color }) => (
+          { icon: Download, value: results.length.toString(), label: "Images Processed" },
+          { icon: HardDrive, value: `${avgSizeReduction > 0 ? avgSizeReduction : "<1"}%`, label: "Size Reduction" },
+          { icon: ZapIcon, value: formatCount(totalPixelsModified), label: "Pixels Modified" },
+          { icon: Target, value: `${avgQuality}%`, label: "Avg. Quality" },
+        ].map(({ icon: Icon, value, label }, i) => (
           <div
             key={label}
             className="bg-muted/40 border border-border rounded-xl p-4 text-center"
+            style={{ animation: `fadeInUp 0.4s ease ${0.1 + i * 0.07}s both` }}
           >
-            <Icon className={`w-5 h-5 mx-auto mb-2 ${color}`} />
-            <div className="font-display font-bold text-foreground text-2xl leading-none mb-1">
-              {value}
-            </div>
+            <Icon className="w-5 h-5 mx-auto mb-2 text-cyan" />
+            <div className="font-display font-bold text-foreground text-2xl leading-none mb-1">{value}</div>
             <div className="text-muted-foreground text-xs">{label}</div>
           </div>
         ))}
       </div>
 
+      {/* Thumbnail Grid */}
+      <div className="px-5 pb-4">
+        <h4 className="font-display font-semibold text-foreground text-sm mb-3 flex items-center gap-2">
+          <span>Cleaned Images</span>
+          <span className="text-xs font-normal text-muted-foreground">(tap to expand · long-press on mobile to save)</span>
+        </h4>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {results.map((r, i) => (
+            <div
+              key={r.originalName}
+              className="relative group rounded-lg overflow-hidden border border-border bg-muted/30 aspect-square cursor-pointer"
+              style={{ animation: `fadeInUp 0.35s ease ${0.15 + i * 0.05}s both` }}
+              onClick={() => setExpanded(expanded === i ? null : i)}
+            >
+              {/* Before thumbnail (faint, top-left corner) */}
+              {filePreviews[i] && (
+                <img
+                  src={filePreviews[i]}
+                  alt="Original"
+                  className="absolute inset-0 w-full h-full object-cover opacity-20"
+                  draggable={false}
+                />
+              )}
+              {/* After thumbnail — full, downloadable on mobile */}
+              <img
+                src={r.downloadUrl}
+                alt={`Cleaned: ${r.cleanedName}`}
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                draggable
+                onContextMenu={(e) => e.stopPropagation()}
+              />
+              {/* Overlay badge */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-end p-2">
+                <p className="text-white text-[10px] font-mono-custom truncate leading-tight">{r.cleanedName}</p>
+                <p className="text-cyan text-[10px] font-medium">{r.sizeReductionPct > 0 ? `${r.sizeReductionPct}% smaller` : "Cleaned"}</p>
+              </div>
+              {/* Clean badge */}
+              <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-green-500/90 flex items-center justify-center">
+                <Check className="w-3 h-3 text-white" />
+              </div>
+              {/* Download button on hover */}
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDownloadOne(r); }}
+                className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 px-2 py-1 rounded-md gradient-cyan text-navy text-[10px] font-semibold"
+              >
+                <Download className="w-2.5 h-2.5" />
+                Save
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Expanded image lightbox */}
+        {expanded !== null && results[expanded] && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            style={{ animation: "fadeIn 0.2s ease" }}
+            onClick={() => setExpanded(null)}
+          >
+            <div
+              className="relative max-w-2xl w-full rounded-2xl overflow-hidden border border-cyan/30 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+              style={{ animation: "scaleIn 0.25s cubic-bezier(0.175,0.885,0.32,1.275)" }}
+            >
+              <img
+                src={results[expanded].downloadUrl}
+                alt={results[expanded].cleanedName}
+                className="w-full h-auto max-h-[70vh] object-contain bg-black"
+              />
+              <div className="flex items-center justify-between px-4 py-3 bg-card border-t border-border">
+                <div>
+                  <p className="font-mono-custom text-foreground text-xs font-semibold">{results[expanded].cleanedName}</p>
+                  <p className="text-muted-foreground text-xs mt-0.5">
+                    {results[expanded].width}×{results[expanded].height}px · {formatBytes(results[expanded].sizeAfter)}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleDownloadOne(results[expanded!])}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg gradient-cyan text-navy text-xs font-semibold hover:opacity-90"
+                  >
+                    <Download className="w-3 h-3" />
+                    Download
+                  </button>
+                  <button
+                    onClick={() => setExpanded(null)}
+                    className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* File Details */}
       <div className="px-5 pb-5">
-        <h4 className="font-display font-semibold text-foreground text-sm mb-3">
-          File Details
-        </h4>
+        <h4 className="font-display font-semibold text-foreground text-sm mb-3">File Details</h4>
         <div className="space-y-3">
-          {results.map((r) => (
+          {results.map((r, i) => (
             <div
               key={r.originalName}
               className="border border-border rounded-lg p-4 bg-background/50"
+              style={{ animation: `fadeInUp 0.35s ease ${0.2 + i * 0.06}s both` }}
             >
-              {/* Filename row */}
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div className="min-w-0">
                   <p className="font-mono-custom text-foreground text-xs font-semibold truncate">
@@ -257,65 +340,38 @@ function ProcessingResults({
                   Download
                 </button>
               </div>
-
-              {/* Stats rows */}
               <div className="space-y-1.5">
-                {/* Metadata removed */}
                 <div className="flex items-center gap-2 text-xs">
                   <CheckCircle2 className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
                   <span className="text-green-400 font-medium">Metadata removed</span>
-                  <span className="text-muted-foreground">
-                    ({r.metadataRemoved.join(", ")})
-                  </span>
+                  <span className="text-muted-foreground">({r.metadataRemoved.join(", ")})</span>
                 </div>
-
-                {/* Hash changed */}
                 <div className="flex items-center gap-2 text-xs">
                   <Hash className="w-3.5 h-3.5 text-cyan flex-shrink-0" />
                   <span className="text-cyan font-medium">Hash changed:</span>
-                  <span className="font-mono-custom text-muted-foreground">
-                    {r.hashBefore.slice(0, 14)}…
-                  </span>
+                  <span className="font-mono-custom text-muted-foreground">{r.hashBefore.slice(0, 14)}…</span>
                   <span className="text-muted-foreground">→</span>
-                  <span className="font-mono-custom text-muted-foreground">
-                    {r.hashAfter.slice(0, 14)}…
-                  </span>
+                  <span className="font-mono-custom text-muted-foreground">{r.hashAfter.slice(0, 14)}…</span>
                 </div>
-
-                {/* Size */}
                 <div className="flex items-center gap-2 text-xs">
                   <HardDrive className="w-3.5 h-3.5 text-cyan flex-shrink-0" />
                   <span className="text-cyan font-medium">Size:</span>
-                  <span className="text-muted-foreground">
-                    {formatBytes(r.sizeBefore)}
-                  </span>
+                  <span className="text-muted-foreground">{formatBytes(r.sizeBefore)}</span>
                   <span className="text-muted-foreground">→</span>
-                  <span className="text-muted-foreground">
-                    {formatBytes(r.sizeAfter)}
-                  </span>
+                  <span className="text-muted-foreground">{formatBytes(r.sizeAfter)}</span>
                   {r.sizeReductionPct > 0 && (
-                    <span className="text-green-400 font-medium">
-                      ({r.sizeReductionPct}% smaller)
-                    </span>
+                    <span className="text-green-400 font-medium">({r.sizeReductionPct}% smaller)</span>
                   )}
                 </div>
-
-                {/* Pixels modified */}
                 <div className="flex items-center gap-2 text-xs">
                   <ZapIcon className="w-3.5 h-3.5 text-cyan flex-shrink-0" />
                   <span className="text-cyan font-medium">Pixels modified:</span>
-                  <span className="text-muted-foreground">
-                    {r.pixelsModified.toLocaleString()} pixel fingerprint changes applied
-                  </span>
+                  <span className="text-muted-foreground">{r.pixelsModified.toLocaleString()} fingerprint changes applied</span>
                 </div>
-
-                {/* Resolution */}
                 <div className="flex items-center gap-2 text-xs">
                   <Target className="w-3.5 h-3.5 text-cyan flex-shrink-0" />
                   <span className="text-cyan font-medium">Output quality:</span>
-                  <span className="text-muted-foreground">
-                    {r.quality}% JPEG · {r.width}×{r.height}px
-                  </span>
+                  <span className="text-muted-foreground">{r.quality}% JPEG · {r.width}×{r.height}px</span>
                 </div>
               </div>
             </div>
@@ -324,7 +380,7 @@ function ProcessingResults({
       </div>
 
       {/* Action buttons */}
-      <div className="px-5 pb-5 flex gap-3">
+      <div className="px-5 pb-5 flex gap-3 flex-wrap">
         {results.length > 1 && (
           <button
             onClick={handleDownloadAll}
@@ -349,16 +405,50 @@ function ProcessingResults({
 function UploadZone() {
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [filePreviews, setFilePreviews] = useState<string[]>([]);
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [results, setResults] = useState<ProcessedImageResult[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [processingStep, setProcessingStep] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Cycle through processing step labels for animation
+  const processingSteps = [
+    "Loading image into memory…",
+    "Rendering to Canvas · stripping metadata…",
+    "Modifying pixel fingerprint…",
+    "Computing SHA-256 hash…",
+    "Encoding clean output…",
+  ];
+
+  useEffect(() => {
+    if (!processing) return;
+    const interval = setInterval(() => {
+      setProcessingStep((s) => (s + 1) % processingSteps.length);
+    }, 900);
+    return () => clearInterval(interval);
+  }, [processing]);
+
+  const generatePreviews = (selectedFiles: File[]) => {
+    const previews: string[] = [];
+    let loaded = 0;
+    selectedFiles.forEach((file, i) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        previews[i] = e.target?.result as string;
+        loaded++;
+        if (loaded === selectedFiles.length) setFilePreviews([...previews]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
 
   const startProcessing = useCallback(async (selectedFiles: File[]) => {
     setProcessing(true);
     setError(null);
     setResults([]);
+    setProcessingStep(0);
     setProgress({ current: 0, total: selectedFiles.length });
     try {
       const processed = await processImages(selectedFiles, (current, total) => {
@@ -377,16 +467,17 @@ function UploadZone() {
     e.preventDefault();
     setIsDragging(false);
     const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/")).slice(0, 20);
-    if (dropped.length > 0) { setFiles(dropped); startProcessing(dropped); }
+    if (dropped.length > 0) { setFiles(dropped); generatePreviews(dropped); startProcessing(dropped); }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []).slice(0, 20);
-    if (selected.length > 0) { setFiles(selected); startProcessing(selected); }
+    if (selected.length > 0) { setFiles(selected); generatePreviews(selected); startProcessing(selected); }
   };
 
   const reset = () => {
     setFiles([]);
+    setFilePreviews([]);
     setProcessing(false);
     setResults([]);
     setError(null);
@@ -447,30 +538,88 @@ function UploadZone() {
 
       {/* ── Processing ── */}
       {processing && (
-        <div className="border border-cyan/30 rounded-xl p-8 text-center bg-cyan/5">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-cyan/10 border border-cyan/30 flex items-center justify-center animate-pulse-glow">
-              <Cpu className="w-6 h-6 text-cyan animate-spin" style={{ animationDuration: "2s" }} />
+        <div className="border border-cyan/30 rounded-xl overflow-hidden bg-cyan/5" style={{ animation: "fadeIn 0.3s ease" }}>
+          {/* File thumbnail strip */}
+          {filePreviews.length > 0 && (
+            <div className="px-5 pt-5 pb-3">
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {filePreviews.map((src, i) => (
+                  <div
+                    key={i}
+                    className="relative flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all duration-300"
+                    style={{
+                      borderColor: i < progress.current ? "oklch(0.82 0.18 196)" : i === progress.current ? "oklch(0.82 0.18 196)" : "rgba(255,255,255,0.1)",
+                      animation: `fadeInUp 0.3s ease ${i * 0.05}s both`,
+                    }}
+                  >
+                    <img src={src} alt="" className="w-full h-full object-cover" />
+                    {/* Overlay for processed */}
+                    {i < progress.current && (
+                      <div className="absolute inset-0 bg-cyan/30 flex items-center justify-center">
+                        <Check className="w-4 h-4 text-white" />
+                      </div>
+                    )}
+                    {/* Overlay for currently processing */}
+                    {i === progress.current && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <div className="w-4 h-4 border-2 border-cyan border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div>
+          )}
+
+          {/* Processing status */}
+          <div className="flex flex-col items-center gap-4 px-8 pb-8 pt-2">
+            {/* Animated icon */}
+            <div className="relative w-16 h-16">
+              {/* Outer ring */}
+              <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(0,212,255,0.1)" strokeWidth="3" />
+                <circle
+                  cx="32" cy="32" r="28"
+                  fill="none"
+                  stroke="oklch(0.82 0.18 196)"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray={`${2 * Math.PI * 28}`}
+                  strokeDashoffset={`${2 * Math.PI * 28 * (1 - progressPct / 100)}`}
+                  style={{ transition: "stroke-dashoffset 0.4s ease" }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Cpu className="w-6 h-6 text-cyan" style={{ animation: "spin 2s linear infinite" }} />
+              </div>
+            </div>
+
+            <div className="text-center">
               <p className="font-display font-semibold text-foreground text-base mb-1">
-                Processing image {progress.current + 1} of {progress.total}…
+                Processing {progress.current + 1} of {progress.total} image{progress.total > 1 ? "s" : ""}
               </p>
-              <p className="text-muted-foreground text-sm">
-                Stripping metadata · Modifying pixel fingerprint · Computing hash
+              <p
+                className="text-muted-foreground text-sm"
+                key={processingStep}
+                style={{ animation: "fadeIn 0.3s ease" }}
+              >
+                {processingSteps[processingStep]}
               </p>
             </div>
+
+            {/* Progress bar */}
             <div className="w-full max-w-xs">
               <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
-                <span>Progress</span>
+                <span>Overall progress</span>
                 <span className="font-mono-custom text-cyan">{progressPct}%</span>
               </div>
-              <div className="bg-muted rounded-full h-1.5 overflow-hidden">
+              <div className="bg-muted rounded-full h-2 overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-all duration-300"
+                  className="h-full rounded-full transition-all duration-500"
                   style={{
                     width: `${progressPct}%`,
                     background: "linear-gradient(90deg, oklch(0.82 0.18 196), oklch(0.65 0.15 220))",
+                    boxShadow: "0 0 8px oklch(0.82 0.18 196 / 0.6)",
                   }}
                 />
               </div>
@@ -486,15 +635,13 @@ function UploadZone() {
             <AlertCircle className="w-5 h-5 text-destructive" />
             <p className="font-display font-semibold text-foreground">{error}</p>
           </div>
-          <button onClick={reset} className="text-sm text-cyan hover:underline">
-            Try again
-          </button>
+          <button onClick={reset} className="text-sm text-cyan hover:underline">Try again</button>
         </div>
       )}
 
       {/* ── Results ── */}
       {results.length > 0 && !processing && (
-        <ProcessingResults results={results} onReset={reset} />
+        <ProcessingResults results={results} filePreviews={filePreviews} onReset={reset} />
       )}
     </div>
   );
