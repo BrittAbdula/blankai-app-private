@@ -1,0 +1,22 @@
+{
+  "name": "BlankAI — Remove AI Metadata",
+  "short_name": "BlankAI",
+  "description": "Free AI metadata remover. Strip EXIF, C2PA, GPS and pixel fingerprints. Make AI images undetectable.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0F1E",
+  "theme_color": "#00D4FF",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "productivity"],
+  "lang": "en",
+  "scope": "/",
+  "screenshots": []
+}

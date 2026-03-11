@@ -7,9 +7,11 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation } from "wouter";
 import JSZip from "jszip";
 import BlogSection from "@/components/BlogSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
+import WaitlistSection from "@/components/WaitlistSection";
 import {
   Shield,
   Zap,
@@ -219,6 +221,19 @@ function ProcessingResults({
   filePreviews: string[];
   onReset: () => void;
 }) {
+  const [, navigate] = useLocation();
+
+  const handleVerifyClean = () => {
+    // Use the first result for single image, or let user pick for batch
+    const r = results[0];
+    if (!r) return;
+    sessionStorage.setItem("blankai_verify_clean", JSON.stringify({
+      dataUrl: r.downloadUrl,
+      name: r.cleanedName,
+      size: r.sizeAfter,
+    }));
+    navigate("/image-diff");
+  };
   const totalPixelsModified = results.reduce((s, r) => s + r.pixelsModified, 0);
   const avgSizeReduction = Math.round(
     results.reduce((s, r) => s + r.sizeReductionPct, 0) / results.length
@@ -543,6 +558,14 @@ function ProcessingResults({
             Download
           </button>
         )}
+        <button
+          onClick={handleVerifyClean}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-cyan/30 text-cyan hover:bg-cyan/5 transition-colors text-sm font-medium"
+          title="Verify metadata was removed by comparing original vs cleaned image"
+        >
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          Verify Clean
+        </button>
         <button
           onClick={handleShareX}
           className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-cyan/30 transition-colors text-sm"
@@ -1488,7 +1511,8 @@ export default function Home() {
       {/* ── Blog / SEO Content ── */}
       <BlogSection />
 
-      <div className="section-divider container" />
+      {/* ── Waitlist / API CTA ── */}
+      <WaitlistSection />
 
       {/* ── CTA Section ── */}
       <section className="py-20">
