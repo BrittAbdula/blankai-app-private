@@ -335,36 +335,43 @@ function ProcessingResults({
           <span className="text-xs font-normal text-muted-foreground">— tap to preview · long-press to save on mobile</span>
         </h4>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {results.map((r, i) => (
+              {results.map((r, i) => (
             <div
               key={r.originalName}
               className="relative group rounded-lg overflow-hidden border border-border bg-muted/30 aspect-square cursor-pointer"
               style={{ animation: `fadeInUp 0.35s ease ${0.15 + i * 0.05}s both` }}
               onClick={() => setExpanded(expanded === i ? null : i)}
             >
-              {/* After thumbnail — full, downloadable on mobile via long-press */}
+              {/* After thumbnail — data: URI, iOS can long-press save */}
               <img
                 src={r.downloadUrl}
                 alt={`Cleaned: ${r.cleanedName}`}
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
               />
               {/* Always-visible bottom gradient info */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-2">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-2">
                 <p className="text-white text-[10px] font-mono-custom truncate leading-tight">{r.cleanedName}</p>
-                <p className="text-cyan text-[10px] font-medium">{r.sizeReductionPct > 0 ? `-${r.sizeReductionPct}%` : "Clean"}</p>
+                <div className="flex items-center justify-between mt-0.5">
+                  <p className="text-cyan text-[10px] font-medium">{r.sizeReductionPct > 0 ? `-${r.sizeReductionPct}%` : "Clean"}</p>
+                  {/* Always-visible save button — critical for mobile users */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDownloadOne(r); }}
+                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-cyan/90 text-navy text-[9px] font-bold active:scale-95 transition-transform"
+                    aria-label={`Save ${r.cleanedName}`}
+                  >
+                    <Download className="w-2.5 h-2.5" />
+                    Save
+                  </button>
+                </div>
               </div>
               {/* Clean badge */}
               <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-green-500/90 flex items-center justify-center shadow-sm">
                 <Check className="w-3 h-3 text-white" />
               </div>
-              {/* Download button — visible on hover (desktop) or always shown (mobile via tap) */}
-              <button
-                onClick={(e) => { e.stopPropagation(); handleDownloadOne(r); }}
-                className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 px-2 py-1 rounded-md gradient-cyan text-navy text-[10px] font-semibold shadow"
-              >
-                <Download className="w-2.5 h-2.5" />
-                Save
-              </button>
+              {/* Expand hint on hover (desktop) */}
+              <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity px-1.5 py-0.5 rounded bg-black/60 text-white text-[9px]">
+                Compare
+              </div>
             </div>
           ))}
         </div>
@@ -691,7 +698,7 @@ function UploadZone() {
           <input
             ref={inputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/avif"
+            accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif,.heic,.heif"
             multiple
             className="hidden"
             onChange={handleChange}
@@ -705,7 +712,7 @@ function UploadZone() {
                 Drop images here or <span className="text-cyan">click to upload</span>
               </p>
               <p className="text-muted-foreground text-sm">
-                JPG, PNG, WebP, AVIF · Up to 20 images
+                JPG, PNG, WebP, AVIF, HEIC · Up to 20 images
               </p>
             </div>
             <div className="flex gap-2 flex-wrap justify-center">
