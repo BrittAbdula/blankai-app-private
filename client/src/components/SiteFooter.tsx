@@ -84,6 +84,14 @@ export default function SiteFooter() {
           <div>
             <h4 className="font-display font-semibold text-foreground text-sm mb-3">Resources</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
+              <li>
+                <Link href="/blog" className="hover:text-foreground transition-colors flex items-center gap-1.5">
+                  <svg className="w-3 h-3 text-cyan/60" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M2 4h12M2 8h8M2 12h6" strokeLinecap="round" />
+                  </svg>
+                  Blog & Guides
+                </Link>
+              </li>
               <li><a href="#faq" className="hover:text-foreground transition-colors">FAQ</a></li>
               <li><a href="#use-cases" className="hover:text-foreground transition-colors">Use Cases</a></li>
               <li><Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link></li>
@@ -115,9 +123,9 @@ export default function SiteFooter() {
         <div className="border-t border-border pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground text-center sm:text-left">
             © {new Date().getFullYear()} BlankAI. All rights reserved. Free{" "}
-            <Link href="/" className="text-cyan/70 hover:text-cyan transition-colors">AI metadata remover</Link>{" "}
-            &amp;{" "}
-            <Link href="/image-diff" className="text-cyan/70 hover:text-cyan transition-colors">Image Diff Tool</Link>.
+            <Link href="/" className="text-cyan/70 hover:text-cyan transition-colors">AI metadata remover</Link>{" · "}
+            <Link href="/image-diff" className="text-cyan/70 hover:text-cyan transition-colors">Image Diff Tool</Link>{" · "}
+            <Link href="/blog" className="text-cyan/70 hover:text-cyan transition-colors">Blog</Link>.
           </p>
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />

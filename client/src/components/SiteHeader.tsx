@@ -33,6 +33,7 @@ const anchorLinks: NavLink[] = [
 
 const toolLinks: NavLink[] = [
   { label: "Image Diff", href: "/image-diff", highlight: true },
+  { label: "Blog", href: "/blog" },
 ];
 
 export default function SiteHeader({ showAnchorLinks = false, breadcrumb }: SiteHeaderProps) {
@@ -98,7 +99,9 @@ export default function SiteHeader({ showAnchorLinks = false, breadcrumb }: Site
             ))}
             {/* Tool links — always shown */}
             {toolLinks.map((link) => {
-              const isActive = location === link.href;
+              const isActive = link.href === "/blog"
+                ? location.startsWith("/blog")
+                : location === link.href;
               return (
                 <Link
                   key={link.label}
@@ -109,11 +112,17 @@ export default function SiteHeader({ showAnchorLinks = false, breadcrumb }: Site
                       : "text-cyan/70 hover:text-cyan hover:bg-cyan/5"
                   } font-medium`}
                 >
-                  <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <rect x="1" y="3" width="6" height="10" rx="1" />
-                    <rect x="9" y="3" width="6" height="10" rx="1" />
-                    <path d="M7 8h2" strokeLinecap="round" />
-                  </svg>
+                  {link.href === "/blog" ? (
+                    <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M2 4h12M2 8h8M2 12h6" strokeLinecap="round" />
+                    </svg>
+                  ) : (
+                    <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <rect x="1" y="3" width="6" height="10" rx="1" />
+                      <rect x="9" y="3" width="6" height="10" rx="1" />
+                      <path d="M7 8h2" strokeLinecap="round" />
+                    </svg>
+                  )}
                   {link.label}
                 </Link>
               );
@@ -225,6 +234,21 @@ export default function SiteHeader({ showAnchorLinks = false, breadcrumb }: Site
                 Image Diff Tool
               </div>
               {location === "/image-diff" && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan/20 text-cyan font-bold">ACTIVE</span>}
+            </Link>
+            <Link
+              href="/blog"
+              onClick={() => setOpen(false)}
+              className={`flex items-center justify-between px-3 py-2.5 rounded-lg transition-all text-sm ${
+                location.startsWith("/blog") ? "text-cyan bg-cyan/10" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M2 4h12M2 8h8M2 12h6" strokeLinecap="round" />
+                </svg>
+                Blog & Guides
+              </div>
+              {location.startsWith("/blog") && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan/20 text-cyan font-bold">ACTIVE</span>}
             </Link>
           </div>
 
