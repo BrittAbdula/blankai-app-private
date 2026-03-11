@@ -6,7 +6,7 @@
  * SEO Target: remove ai pixel metadata remover undetectable ai image
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import BlogSection from "@/components/BlogSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
 import {
@@ -31,7 +31,12 @@ import {
   Star,
   ArrowRight,
   Check,
+  HardDrive,
+  Zap as ZapIcon,
+  Target,
+  AlertCircle,
 } from "lucide-react";
+import { processImages, formatBytes, formatCount, type ProcessedImageResult } from "@/lib/imageProcessor";
 
 // ─── Intersection Observer Hook ───────────────────────────────────────────────
 function useInView(threshold = 0.1) {
@@ -134,37 +139,268 @@ function FAQItem({ q, a }: { q: string; a: string }) {
   );
 }
 
+// ─── Processing Complete Results Panel ────────────────────────────────────────
+function ProcessingResults({
+  results,
+  onReset,
+}: {
+  results: ProcessedImageResult[];
+  onReset: () => void;
+}) {
+  const totalPixelsModified = results.reduce((s, r) => s + r.pixelsModified, 0);
+  const avgSizeReduction = Math.round(
+    results.reduce((s, r) => s + r.sizeReductionPct, 0) / results.length
+  );
+  const avgQuality = Math.round(
+    results.reduce((s, r) => s + r.quality, 0) / results.length
+  );
+
+  const handleDownloadAll = () => {
+    results.forEach((r) => {
+      const a = document.createElement("a");
+      a.href = r.downloadUrl;
+      a.download = r.cleanedName;
+      a.click();
+    });
+  };
+
+  const handleDownloadOne = (r: ProcessedImageResult) => {
+    const a = document.createElement("a");
+    a.href = r.downloadUrl;
+    a.download = r.cleanedName;
+    a.click();
+  };
+
+  return (
+    <div className="border border-border rounded-xl overflow-hidden bg-card">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-6 py-5 border-b border-border">
+        <div className="w-8 h-8 rounded-full bg-cyan/10 border border-cyan/30 flex items-center justify-center">
+          <CheckCircle2 className="w-4 h-4 text-cyan" />
+        </div>
+        <div>
+          <h3 className="font-display font-bold text-foreground text-lg leading-none">
+            Processing Complete!
+          </h3>
+          <p className="text-muted-foreground text-xs mt-0.5">
+            All AI metadata and pixel fingerprints have been removed
+          </p>
+        </div>
+      </div>
+
+      {/* Aggregate Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-5">
+        {[
+          {
+            icon: Download,
+            value: results.length.toString(),
+            label: "Images Processed",
+            color: "text-cyan",
+          },
+          {
+            icon: HardDrive,
+            value: `${avgSizeReduction > 0 ? avgSizeReduction : "<1"}%`,
+            label: "Size Reduction",
+            color: "text-cyan",
+          },
+          {
+            icon: ZapIcon,
+            value: formatCount(totalPixelsModified),
+            label: "Pixels Modified",
+            color: "text-cyan",
+          },
+          {
+            icon: Target,
+            value: `${avgQuality}%`,
+            label: "Avg. Quality",
+            color: "text-cyan",
+          },
+        ].map(({ icon: Icon, value, label, color }) => (
+          <div
+            key={label}
+            className="bg-muted/40 border border-border rounded-xl p-4 text-center"
+          >
+            <Icon className={`w-5 h-5 mx-auto mb-2 ${color}`} />
+            <div className="font-display font-bold text-foreground text-2xl leading-none mb-1">
+              {value}
+            </div>
+            <div className="text-muted-foreground text-xs">{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* File Details */}
+      <div className="px-5 pb-5">
+        <h4 className="font-display font-semibold text-foreground text-sm mb-3">
+          File Details
+        </h4>
+        <div className="space-y-3">
+          {results.map((r) => (
+            <div
+              key={r.originalName}
+              className="border border-border rounded-lg p-4 bg-background/50"
+            >
+              {/* Filename row */}
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <div className="min-w-0">
+                  <p className="font-mono-custom text-foreground text-xs font-semibold truncate">
+                    {r.originalName}
+                    <span className="text-muted-foreground font-normal mx-1.5">→</span>
+                    <span className="text-cyan">{r.cleanedName}</span>
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleDownloadOne(r)}
+                  className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg gradient-cyan text-navy text-xs font-semibold hover:opacity-90 transition-opacity"
+                >
+                  <Download className="w-3 h-3" />
+                  Download
+                </button>
+              </div>
+
+              {/* Stats rows */}
+              <div className="space-y-1.5">
+                {/* Metadata removed */}
+                <div className="flex items-center gap-2 text-xs">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+                  <span className="text-green-400 font-medium">Metadata removed</span>
+                  <span className="text-muted-foreground">
+                    ({r.metadataRemoved.join(", ")})
+                  </span>
+                </div>
+
+                {/* Hash changed */}
+                <div className="flex items-center gap-2 text-xs">
+                  <Hash className="w-3.5 h-3.5 text-cyan flex-shrink-0" />
+                  <span className="text-cyan font-medium">Hash changed:</span>
+                  <span className="font-mono-custom text-muted-foreground">
+                    {r.hashBefore.slice(0, 14)}…
+                  </span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="font-mono-custom text-muted-foreground">
+                    {r.hashAfter.slice(0, 14)}…
+                  </span>
+                </div>
+
+                {/* Size */}
+                <div className="flex items-center gap-2 text-xs">
+                  <HardDrive className="w-3.5 h-3.5 text-cyan flex-shrink-0" />
+                  <span className="text-cyan font-medium">Size:</span>
+                  <span className="text-muted-foreground">
+                    {formatBytes(r.sizeBefore)}
+                  </span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="text-muted-foreground">
+                    {formatBytes(r.sizeAfter)}
+                  </span>
+                  {r.sizeReductionPct > 0 && (
+                    <span className="text-green-400 font-medium">
+                      ({r.sizeReductionPct}% smaller)
+                    </span>
+                  )}
+                </div>
+
+                {/* Pixels modified */}
+                <div className="flex items-center gap-2 text-xs">
+                  <ZapIcon className="w-3.5 h-3.5 text-cyan flex-shrink-0" />
+                  <span className="text-cyan font-medium">Pixels modified:</span>
+                  <span className="text-muted-foreground">
+                    {r.pixelsModified.toLocaleString()} pixel fingerprint changes applied
+                  </span>
+                </div>
+
+                {/* Resolution */}
+                <div className="flex items-center gap-2 text-xs">
+                  <Target className="w-3.5 h-3.5 text-cyan flex-shrink-0" />
+                  <span className="text-cyan font-medium">Output quality:</span>
+                  <span className="text-muted-foreground">
+                    {r.quality}% JPEG · {r.width}×{r.height}px
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Action buttons */}
+      <div className="px-5 pb-5 flex gap-3">
+        {results.length > 1 && (
+          <button
+            onClick={handleDownloadAll}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg gradient-cyan text-navy font-semibold text-sm hover:opacity-90 transition-opacity"
+          >
+            <Download className="w-4 h-4" />
+            Download All ({results.length} files)
+          </button>
+        )}
+        <button
+          onClick={onReset}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-cyan/30 transition-colors text-sm"
+        >
+          Process More Images
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Upload Zone ──────────────────────────────────────────────────────────────
 function UploadZone() {
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [processing, setProcessing] = useState(false);
-  const [done, setDone] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [results, setResults] = useState<ProcessedImageResult[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const startProcessing = useCallback(async (selectedFiles: File[]) => {
+    setProcessing(true);
+    setError(null);
+    setResults([]);
+    setProgress({ current: 0, total: selectedFiles.length });
+    try {
+      const processed = await processImages(selectedFiles, (current, total) => {
+        setProgress({ current, total });
+      });
+      setResults(processed);
+    } catch (err) {
+      setError("Processing failed. Please try a different image format.");
+      console.error(err);
+    } finally {
+      setProcessing(false);
+    }
+  }, []);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
-    if (dropped.length > 0) { setFiles(dropped); simulateProcess(); }
+    const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/")).slice(0, 20);
+    if (dropped.length > 0) { setFiles(dropped); startProcessing(dropped); }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(e.target.files || []);
-    if (selected.length > 0) { setFiles(selected); simulateProcess(); }
+    const selected = Array.from(e.target.files || []).slice(0, 20);
+    if (selected.length > 0) { setFiles(selected); startProcessing(selected); }
   };
 
-  const simulateProcess = () => {
-    setProcessing(true);
-    setDone(false);
-    setTimeout(() => { setProcessing(false); setDone(true); }, 2200);
+  const reset = () => {
+    setFiles([]);
+    setProcessing(false);
+    setResults([]);
+    setError(null);
+    setProgress({ current: 0, total: 0 });
   };
 
-  const reset = () => { setFiles([]); setProcessing(false); setDone(false); };
+  const progressPct = progress.total > 0
+    ? Math.round((progress.current / progress.total) * 100)
+    : 0;
 
   return (
     <div className="w-full">
-      {!files.length ? (
+      {/* ── Idle: Drop Zone ── */}
+      {!files.length && !processing && results.length === 0 && (
         <div
           className={`relative border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all duration-300 ${
             isDragging
@@ -207,44 +443,58 @@ function UploadZone() {
             </div>
           </div>
         </div>
-      ) : processing ? (
-        <div className="border border-cyan/30 rounded-xl p-10 text-center bg-cyan/5">
+      )}
+
+      {/* ── Processing ── */}
+      {processing && (
+        <div className="border border-cyan/30 rounded-xl p-8 text-center bg-cyan/5">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-cyan/10 border border-cyan/30 flex items-center justify-center animate-pulse-glow">
-              <Cpu className="w-7 h-7 text-cyan animate-spin" style={{ animationDuration: "2s" }} />
+            <div className="w-14 h-14 rounded-2xl bg-cyan/10 border border-cyan/30 flex items-center justify-center animate-pulse-glow">
+              <Cpu className="w-6 h-6 text-cyan animate-spin" style={{ animationDuration: "2s" }} />
             </div>
             <div>
-              <p className="font-display font-semibold text-foreground text-lg mb-1">Processing {files.length} image{files.length > 1 ? "s" : ""}…</p>
-              <p className="text-muted-foreground text-sm">Stripping metadata · Modifying pixel fingerprint · Re-encoding</p>
-            </div>
-            <div className="w-full max-w-xs bg-muted rounded-full h-1.5 overflow-hidden">
-              <div className="h-full bg-cyan rounded-full animate-[scan-line_2s_ease-in-out_infinite]" style={{ width: "70%", animation: "none", background: "linear-gradient(90deg, oklch(0.82 0.18 196), oklch(0.65 0.15 220))" }} />
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="border border-green-500/30 rounded-xl p-10 text-center bg-green-500/5">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center justify-center">
-              <CheckCircle2 className="w-7 h-7 text-green-400" />
-            </div>
-            <div>
-              <p className="font-display font-semibold text-foreground text-lg mb-1">
-                {files.length} image{files.length > 1 ? "s" : ""} cleaned successfully
+              <p className="font-display font-semibold text-foreground text-base mb-1">
+                Processing image {progress.current + 1} of {progress.total}…
               </p>
-              <p className="text-muted-foreground text-sm">All AI metadata and pixel fingerprints removed. Ready to download.</p>
+              <p className="text-muted-foreground text-sm">
+                Stripping metadata · Modifying pixel fingerprint · Computing hash
+              </p>
             </div>
-            <div className="flex gap-3">
-              <button className="flex items-center gap-2 px-5 py-2.5 rounded-lg gradient-cyan text-navy font-semibold text-sm hover:opacity-90 transition-opacity">
-                <Download className="w-4 h-4" />
-                Download Clean Images
-              </button>
-              <button onClick={reset} className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-cyan/30 transition-colors text-sm">
-                Process More
-              </button>
+            <div className="w-full max-w-xs">
+              <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
+                <span>Progress</span>
+                <span className="font-mono-custom text-cyan">{progressPct}%</span>
+              </div>
+              <div className="bg-muted rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-300"
+                  style={{
+                    width: `${progressPct}%`,
+                    background: "linear-gradient(90deg, oklch(0.82 0.18 196), oklch(0.65 0.15 220))",
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Error ── */}
+      {error && (
+        <div className="border border-destructive/30 rounded-xl p-6 bg-destructive/5">
+          <div className="flex items-center gap-3 mb-3">
+            <AlertCircle className="w-5 h-5 text-destructive" />
+            <p className="font-display font-semibold text-foreground">{error}</p>
+          </div>
+          <button onClick={reset} className="text-sm text-cyan hover:underline">
+            Try again
+          </button>
+        </div>
+      )}
+
+      {/* ── Results ── */}
+      {results.length > 0 && !processing && (
+        <ProcessingResults results={results} onReset={reset} />
       )}
     </div>
   );
