@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import JSZip from "jszip";
 import BlogSection from "@/components/BlogSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
 import {
@@ -35,6 +36,8 @@ import {
   Zap as ZapIcon,
   Target,
   AlertCircle,
+  Share2,
+  Archive,
 } from "lucide-react";
 import { processImages, formatBytes, formatCount, type ProcessedImageResult } from "@/lib/imageProcessor";
 
@@ -140,6 +143,73 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 }
 
 // ─── Processing Complete Results Panel ────────────────────────────────────────
+// ─── Before/After Comparison Slider ─────────────────────────────────────────
+function CompareSlider({ before, after }: { before: string; after: string }) {
+  const [sliderPos, setSliderPos] = useState(50);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
+
+  const updatePos = (clientX: number) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    setSliderPos(pct);
+  };
+
+  const onMouseDown = (e: React.MouseEvent) => { dragging.current = true; updatePos(e.clientX); };
+  const onMouseMove = (e: React.MouseEvent) => { if (dragging.current) updatePos(e.clientX); };
+  const onMouseUp = () => { dragging.current = false; };
+  const onTouchMove = (e: React.TouchEvent) => { updatePos(e.touches[0].clientX); };
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative w-full select-none overflow-hidden rounded-t-xl bg-black"
+      style={{ maxHeight: "65vh", cursor: "col-resize" }}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
+      onTouchMove={onTouchMove}
+    >
+      {/* After (base layer) */}
+      <img src={after} alt="After" className="w-full h-auto max-h-[65vh] object-contain block" draggable={false} />
+      {/* Before (clipped overlay) */}
+      <div
+        className="absolute inset-0 overflow-hidden"
+        style={{ clipPath: `inset(0 ${100 - sliderPos}% 0 0)` }}
+      >
+        <img src={before} alt="Before" className="w-full h-auto max-h-[65vh] object-contain block" draggable={false} />
+        {/* Before label */}
+        <div className="absolute top-3 left-3 px-2 py-1 rounded-md bg-black/60 text-white text-xs font-semibold backdrop-blur-sm">
+          BEFORE
+        </div>
+      </div>
+      {/* After label */}
+      <div className="absolute top-3 right-3 px-2 py-1 rounded-md bg-cyan/80 text-navy text-xs font-semibold backdrop-blur-sm">
+        AFTER
+      </div>
+      {/* Divider line */}
+      <div
+        className="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]"
+        style={{ left: `${sliderPos}%` }}
+      >
+        {/* Handle */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M4 7H1M1 7L3 5M1 7L3 9" stroke="#0A0F1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M10 7H13M13 7L11 5M13 7L11 9" stroke="#0A0F1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+      </div>
+      {/* Drag hint */}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-2 py-1 rounded-full bg-black/50 text-white/70 text-[10px] pointer-events-none">
+        ← drag to compare →
+      </div>
+    </div>
+  );
+}
+
 function ProcessingResults({
   results,
   filePreviews,
@@ -158,21 +228,34 @@ function ProcessingResults({
   );
   const [expanded, setExpanded] = useState<number | null>(null);
   const [headerPulsed, setHeaderPulsed] = useState(false);
+  const [zipping, setZipping] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setHeaderPulsed(true), 100);
     return () => clearTimeout(t);
   }, []);
 
-  const handleDownloadAll = () => {
-    results.forEach((r, i) => {
-      setTimeout(() => {
-        const a = document.createElement("a");
-        a.href = r.downloadUrl;
-        a.download = r.cleanedName;
-        a.click();
-      }, i * 200);
-    });
+  const handleDownloadZip = async () => {
+    setZipping(true);
+    try {
+      const zip = new JSZip();
+      const folder = zip.folder("blankai-cleaned")!;
+      for (const r of results) {
+        // Convert data URL to blob
+        const res = await fetch(r.downloadUrl);
+        const blob = await res.blob();
+        folder.file(r.cleanedName, blob);
+      }
+      const content = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `blankai-cleaned-${results.length}-images.zip`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } finally {
+      setZipping(false);
+    }
   };
 
   const handleDownloadOne = (r: ProcessedImageResult) => {
@@ -180,6 +263,13 @@ function ProcessingResults({
     a.href = r.downloadUrl;
     a.download = r.cleanedName;
     a.click();
+  };
+
+  const handleShareX = () => {
+    const text = encodeURIComponent(
+      `Just removed AI metadata from ${results.length} image${results.length > 1 ? "s" : ""} — now completely undetectable! 🔒 Try it free at blankai.app #AIMetadata #UndetectableAI`
+    );
+    window.open(`https://x.com/intent/tweet?text=${text}`, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -279,10 +369,10 @@ function ProcessingResults({
           ))}
         </div>
 
-        {/* Expanded image lightbox */}
+        {/* Lightbox with Before/After Comparison Slider */}
         {expanded !== null && results[expanded] && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4"
             style={{ animation: "fadeIn 0.2s ease" }}
             onClick={() => setExpanded(null)}
           >
@@ -291,25 +381,37 @@ function ProcessingResults({
               onClick={(e) => e.stopPropagation()}
               style={{ animation: "scaleIn 0.25s cubic-bezier(0.175,0.885,0.32,1.275)" }}
             >
-              <img
-                src={results[expanded].downloadUrl}
-                alt={results[expanded].cleanedName}
-                className="w-full h-auto max-h-[70vh] object-contain bg-black"
-              />
+              {/* Before/After Slider — show original vs cleaned */}
+              {filePreviews[expanded] ? (
+                <CompareSlider
+                  before={filePreviews[expanded]}
+                  after={results[expanded].downloadUrl}
+                />
+              ) : (
+                <img
+                  src={results[expanded].downloadUrl}
+                  alt={results[expanded].cleanedName}
+                  className="w-full h-auto max-h-[65vh] object-contain bg-black"
+                />
+              )}
+              {/* Footer bar */}
               <div className="flex items-center justify-between px-4 py-3 bg-card border-t border-border">
-                <div>
-                  <p className="font-mono-custom text-foreground text-xs font-semibold">{results[expanded].cleanedName}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="font-mono-custom text-foreground text-xs font-semibold truncate">{results[expanded].cleanedName}</p>
                   <p className="text-muted-foreground text-xs mt-0.5">
                     {results[expanded].width}×{results[expanded].height}px · {formatBytes(results[expanded].sizeAfter)}
+                    {results[expanded].sizeReductionPct > 0 && (
+                      <span className="text-green-400 ml-1">— {results[expanded].sizeReductionPct}% smaller</span>
+                    )}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-shrink-0">
                   <button
                     onClick={() => handleDownloadOne(results[expanded!])}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg gradient-cyan text-navy text-xs font-semibold hover:opacity-90"
                   >
                     <Download className="w-3 h-3" />
-                    Download
+                    Save
                   </button>
                   <button
                     onClick={() => setExpanded(null)}
@@ -407,15 +509,40 @@ function ProcessingResults({
 
       {/* Action buttons */}
       <div className="px-5 pb-5 flex gap-3 flex-wrap">
-        {results.length > 1 && (
+        {results.length > 1 ? (
           <button
-            onClick={handleDownloadAll}
+            onClick={handleDownloadZip}
+            disabled={zipping}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg gradient-cyan text-navy font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-60"
+          >
+            {zipping ? (
+              <>
+                <div className="w-4 h-4 border-2 border-navy border-t-transparent rounded-full" style={{ animation: "spin 0.8s linear infinite" }} />
+                Zipping…
+              </>
+            ) : (
+              <>
+                <Archive className="w-4 h-4" />
+                Download ZIP ({results.length} files)
+              </>
+            )}
+          </button>
+        ) : (
+          <button
+            onClick={() => handleDownloadOne(results[0])}
             className="flex items-center gap-2 px-5 py-2.5 rounded-lg gradient-cyan text-navy font-semibold text-sm hover:opacity-90 transition-opacity"
           >
             <Download className="w-4 h-4" />
-            Download All ({results.length})
+            Download
           </button>
         )}
+        <button
+          onClick={handleShareX}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-cyan/30 transition-colors text-sm"
+        >
+          <Share2 className="w-3.5 h-3.5" />
+          Share on X
+        </button>
         <button
           onClick={onReset}
           className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-cyan/30 transition-colors text-sm"
