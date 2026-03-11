@@ -6,12 +6,16 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import ImageDiff from "./pages/ImageDiff";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 
 function Router() {
   return (
     <Switch>
       <Route path={"/"} component={Home} />
       <Route path={"/image-diff"} component={ImageDiff} />
+      <Route path={"/privacy"} component={PrivacyPolicy} />
+      <Route path={"/terms"} component={TermsOfService} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

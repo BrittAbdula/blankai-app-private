@@ -1642,8 +1642,8 @@ export default function Home() {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><a href="#faq" className="hover:text-foreground transition-colors">FAQ</a></li>
                 <li><a href="#use-cases" className="hover:text-foreground transition-colors">Use Cases</a></li>
-                <li><span className="cursor-pointer hover:text-foreground transition-colors">Privacy Policy</span></li>
-                <li><span className="cursor-pointer hover:text-foreground transition-colors">Terms of Service</span></li>
+                <li><a href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</a></li>
+                <li><a href="/terms" className="hover:text-foreground transition-colors">Terms of Service</a></li>
               </ul>
             </div>
           </div>
