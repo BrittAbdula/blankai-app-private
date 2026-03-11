@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "wouter";
 import {
   Clock, ArrowLeft, ArrowRight, CheckCircle2,
-  Shield, User, Tag, ChevronRight, ExternalLink, BookOpen
+  Shield, User, Tag, ChevronRight, ExternalLink, BookOpen, Share2
 } from "lucide-react";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
@@ -263,16 +263,21 @@ export default function BlogPostPage() {
                   ))}
                 </div>
 
-                {/* Cover gradient banner */}
+                {/* Cover image banner */}
                 <div
-                  className="w-full h-36 rounded-xl mb-6 flex items-end p-5"
+                  className="w-full h-52 rounded-xl mb-6 overflow-hidden relative"
                   style={{ background: post.coverGradient }}
                 >
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-white/60" />
-                    <span className="text-white/60 text-xs">{post.readTime} min read</span>
-                    <span className="text-white/40 text-xs">·</span>
-                    <span className="text-white/60 text-xs">{post.date}</span>
+                  {post.coverImage && (
+                    <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover" />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end p-5">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-3.5 h-3.5 text-white/70" />
+                      <span className="text-white/70 text-xs">{post.readTime} min read</span>
+                      <span className="text-white/50 text-xs">·</span>
+                      <span className="text-white/70 text-xs">{post.date}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -318,6 +323,46 @@ export default function BlogPostPage() {
                       #{tag}
                     </span>
                   ))}
+                </div>
+              </div>
+
+              {/* Share buttons */}
+              <div className="mt-8 p-5 rounded-2xl border border-border/60 bg-card/30">
+                <p className="text-sm font-display font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <Share2 className="w-4 h-4 text-cyan" />
+                  Share this article
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  {/* Twitter/X */}
+                  <a
+                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}&url=${encodeURIComponent(`https://blankai.app/blog/${post.slug}`)}&hashtags=AIMetadata,UndetectableAI,BlankAI`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1a1a1a] border border-white/10 text-white text-xs font-semibold hover:bg-[#2a2a2a] hover:border-white/20 transition-all"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    Share on X
+                  </a>
+                  {/* Reddit */}
+                  <a
+                    href={`https://www.reddit.com/submit?url=${encodeURIComponent(`https://blankai.app/blog/${post.slug}`)}&title=${encodeURIComponent(post.title)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#ff4500]/10 border border-[#ff4500]/30 text-[#ff6534] text-xs font-semibold hover:bg-[#ff4500]/20 transition-all"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/></svg>
+                    Share on Reddit
+                  </a>
+                  {/* Copy Link */}
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`https://blankai.app/blog/${post.slug}`);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card/60 border border-border/60 text-muted-foreground text-xs font-semibold hover:border-cyan/30 hover:text-foreground transition-all"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                    Copy Link
+                  </button>
                 </div>
               </div>
 
@@ -397,9 +442,13 @@ export default function BlogPostPage() {
                       <Link key={related.slug} href={`/blog/${related.slug}`}>
                         <div className="group cursor-pointer">
                           <div
-                            className="w-full h-10 rounded-lg mb-2"
+                            className="w-full h-14 rounded-lg mb-2 overflow-hidden"
                             style={{ background: related.coverGradient }}
-                          />
+                          >
+                            {related.coverImage && (
+                              <img src={related.coverImage} alt={related.title} className="w-full h-full object-cover" loading="lazy" />
+                            )}
+                          </div>
                           <p className="text-foreground text-xs font-medium leading-snug group-hover:text-cyan transition-colors line-clamp-2">
                             {related.title}
                           </p>

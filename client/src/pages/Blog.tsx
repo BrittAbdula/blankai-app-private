@@ -83,10 +83,13 @@ export default function Blog() {
             {featured.map((post) => (
               <Link key={post.slug} href={`/blog/${post.slug}`}>
                 <article className="group rounded-xl border border-border/60 bg-card/40 hover:border-cyan/40 hover:bg-card/70 transition-all duration-200 overflow-hidden cursor-pointer h-full flex flex-col">
-                  {/* Cover gradient */}
-                  <div className="h-32 w-full flex-shrink-0" style={{ background: post.coverGradient }}>
-                    <div className="h-full w-full flex items-end p-4">
-                      <span className="text-xs font-mono-custom text-white/60 bg-black/30 px-2 py-0.5 rounded">
+                  {/* Cover image */}
+                  <div className="h-40 w-full flex-shrink-0 relative overflow-hidden" style={{ background: post.coverGradient }}>
+                    {post.coverImage && (
+                      <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover" loading="lazy" />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
+                      <span className="text-xs font-mono-custom text-white/80 bg-black/40 px-2 py-0.5 rounded border border-white/20">
                         {post.category}
                       </span>
                     </div>
@@ -147,11 +150,15 @@ export default function Blog() {
             {filtered.map((post) => (
               <Link key={post.slug} href={`/blog/${post.slug}`}>
                 <article className="group flex flex-col sm:flex-row gap-4 p-5 rounded-xl border border-border/60 bg-card/30 hover:border-cyan/40 hover:bg-card/60 transition-all duration-200 cursor-pointer">
-                  {/* Color swatch */}
+                  {/* Cover thumbnail */}
                   <div
-                    className="w-full sm:w-20 h-20 rounded-lg flex-shrink-0"
+                    className="w-full sm:w-24 h-20 rounded-lg flex-shrink-0 overflow-hidden"
                     style={{ background: post.coverGradient }}
-                  />
+                  >
+                    {post.coverImage && (
+                      <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover" loading="lazy" />
+                    )}
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                       <span className="text-xs font-mono-custom text-cyan/70 bg-cyan/10 px-2 py-0.5 rounded border border-cyan/20">

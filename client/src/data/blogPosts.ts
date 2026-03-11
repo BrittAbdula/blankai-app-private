@@ -22,6 +22,7 @@ export interface BlogPost {
   readTime: number; // minutes
   featured: boolean;
   coverGradient: string; // CSS gradient for cover
+  coverImage?: string; // CDN URL for cover image
   sections: BlogSection[];
   relatedSlugs: string[];
 }
@@ -72,6 +73,7 @@ export const blogPosts: BlogPost[] = [
     readTime: 9,
     featured: true,
     coverGradient: "linear-gradient(135deg, oklch(0.15 0.04 220) 0%, oklch(0.22 0.08 260) 100%)",
+    coverImage: "https://d2xsxph8kpxj0f.cloudfront.net/310419663030568626/8ywQyTwM8J3DhQPbxGgFvw/blog-cover-ai-metadata-WX4cGQDXhdYkEGdodqesgX.webp",
     relatedSlugs: ["how-to-remove-c2pa-metadata", "remove-exif-data-complete-guide", "undetectable-ai-images-guide"],
     sections: [
       { type: "p", content: "When you generate an image using Midjourney, DALL-E 3, Stable Diffusion, or any modern AI art tool, you receive what appears to be a clean JPEG or PNG file. But embedded within that file — invisible to the naked eye, hidden in binary structures that most image viewers never display — is a detailed record of how that image was created. This hidden record is what researchers and platform engineers call AI metadata, and in 2026, it has become one of the most consequential privacy issues facing digital creators." },
@@ -137,6 +139,7 @@ export const blogPosts: BlogPost[] = [
     readTime: 11,
     featured: true,
     coverGradient: "linear-gradient(135deg, oklch(0.14 0.05 240) 0%, oklch(0.20 0.10 200) 100%)",
+    coverImage: "https://d2xsxph8kpxj0f.cloudfront.net/310419663030568626/8ywQyTwM8J3DhQPbxGgFvw/blog-cover-c2pa-JSGUG2a4mCuHdzMsVehEJr.webp",
     relatedSlugs: ["what-is-ai-metadata-and-why-it-matters", "remove-exif-data-complete-guide", "midjourney-metadata-removal"],
     sections: [
       { type: "p", content: "If you have ever opened a DALL-E 3 image in a tool like ExifTool or Adobe Bridge, you may have noticed a block of data labeled 'C2PA' or 'Content Credentials' that looks nothing like ordinary EXIF fields. This is the Coalition for Content Provenance and Authenticity standard — a cryptographically signed provenance system that has become the most technically sophisticated form of AI metadata in widespread use. In 2026, C2PA credentials are embedded by default in images from DALL-E 3, Adobe Firefly, Bing Image Creator, and an expanding list of other AI tools." },
@@ -217,6 +220,7 @@ export const blogPosts: BlogPost[] = [
     readTime: 10,
     featured: false,
     coverGradient: "linear-gradient(135deg, oklch(0.13 0.06 260) 0%, oklch(0.19 0.09 230) 100%)",
+    coverImage: "https://d2xsxph8kpxj0f.cloudfront.net/310419663030568626/8ywQyTwM8J3DhQPbxGgFvw/blog-cover-exif-R4PTUbhiuGmQYUM7sT4Xvv.webp",
     relatedSlugs: ["what-is-ai-metadata-and-why-it-matters", "how-to-remove-c2pa-metadata", "undetectable-ai-images-guide"],
     sections: [
       { type: "p", content: "EXIF data is the invisible passenger in every digital image. Originally designed to help photographers review their camera settings after a shoot, EXIF has evolved into a comprehensive record of how, when, and where an image was created — and in the age of AI image generation, it has become a detailed log of which AI tool you used and exactly how you used it. Removing EXIF data is one of the most important privacy practices for photographers, AI creators, and anyone who shares images online." },
@@ -282,6 +286,7 @@ export const blogPosts: BlogPost[] = [
     readTime: 12,
     featured: true,
     coverGradient: "linear-gradient(135deg, oklch(0.12 0.07 250) 0%, oklch(0.18 0.12 210) 100%)",
+    coverImage: "https://d2xsxph8kpxj0f.cloudfront.net/310419663030568626/8ywQyTwM8J3DhQPbxGgFvw/blog-cover-undetectable-iVDw52KQetB9oAdKrJgNSX.webp",
     relatedSlugs: ["what-is-ai-metadata-and-why-it-matters", "how-to-remove-c2pa-metadata", "midjourney-metadata-removal"],
     sections: [
       { type: "p", content: "The question of how to make AI images undetectable is one of the most searched topics in the creator community in 2026 — and also one of the most misunderstood. Many creators believe that simply running an AI image through a photo editor, applying a filter, or saving it in a different format is sufficient to evade detection. In reality, AI detection operates on multiple levels simultaneously, and addressing only one level while ignoring the others leaves significant traces that detection systems can identify." },
@@ -352,6 +357,7 @@ export const blogPosts: BlogPost[] = [
     readTime: 8,
     featured: false,
     coverGradient: "linear-gradient(135deg, oklch(0.14 0.05 230) 0%, oklch(0.21 0.08 270) 100%)",
+    coverImage: "https://d2xsxph8kpxj0f.cloudfront.net/310419663030568626/8ywQyTwM8J3DhQPbxGgFvw/blog-cover-midjourney-knvxZPWDUpsnZdrLbuZLBq.webp",
     relatedSlugs: ["what-is-ai-metadata-and-why-it-matters", "undetectable-ai-images-guide", "stable-diffusion-metadata-guide"],
     sections: [
       { type: "p", content: "Midjourney is the most widely used AI image generation platform in the world, with millions of creators using it daily to produce images for commercial projects, social media, marketing materials, and personal art. What many of these creators do not realize is that every Midjourney image — whether downloaded from the Discord bot or the Midjourney web interface — contains embedded metadata that identifies it as AI-generated." },
@@ -416,6 +422,7 @@ export const blogPosts: BlogPost[] = [
     readTime: 10,
     featured: false,
     coverGradient: "linear-gradient(135deg, oklch(0.13 0.08 220) 0%, oklch(0.20 0.06 250) 100%)",
+    coverImage: "https://d2xsxph8kpxj0f.cloudfront.net/310419663030568626/8ywQyTwM8J3DhQPbxGgFvw/blog-cover-stable-diffusion-Gt2sYuY4xQhbet9XCoAu9e.webp",
     relatedSlugs: ["what-is-ai-metadata-and-why-it-matters", "remove-exif-data-complete-guide", "undetectable-ai-images-guide"],
     sections: [
       { type: "p", content: "Stable Diffusion is unique among major AI image generators in the sheer volume of metadata it embeds in its outputs. While tools like Midjourney embed a few identifying fields and DALL-E 3 uses C2PA credentials, Stable Diffusion — through its most popular interfaces, AUTOMATIC1111 and ComfyUI — embeds a comprehensive record of the entire generation process directly in the image file. This includes your full prompt, your negative prompt, the model checkpoint you used, the LoRA weights, the seed, the number of steps, the CFG scale, the sampler, and in ComfyUI's case, the complete workflow graph as a JSON object." },
