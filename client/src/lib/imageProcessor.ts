@@ -1,28 +1,30 @@
 /**
  * BlankAI — Real Image Processing Engine
- * 
+ *
  * Approach:
  * 1. Read original file bytes → compute SHA-256 hash (before)
- * 2. Draw image onto HTML5 Canvas → this strips ALL metadata (EXIF, XMP, IPTC, C2PA, PNG chunks)
+ * 2. Draw image onto HTML5 Canvas → strips ALL metadata (EXIF, XMP, IPTC, C2PA, PNG chunks)
  *    because Canvas re-renders only pixel data, discarding all metadata containers
  * 3. Apply pixel-level modification: iterate over every Nth pixel and apply ±1 RGB delta
  *    This changes the image's digital fingerprint / perceptual hash
  * 4. Re-encode as JPEG at quality 0.92 → get clean Blob
- * 5. Compute SHA-256 of output blob (after)
- * 6. Return: cleanBlob, downloadUrl, stats (sizeBefore, sizeAfter, pixelsModified, hashBefore, hashAfter, quality)
+ * 5. Convert Blob to data: URI (Base64) — required for iOS Safari long-press save to Photos
+ *    (blob: URLs show "no internet connection" on iPhone when long-pressing to save)
+ * 6. Compute SHA-256 of output blob (after)
+ * 7. Return: cleanBlob, downloadUrl (data URI), stats
  */
 
 export interface ProcessedImageResult {
   originalName: string;
   cleanedName: string;
   blob: Blob;
-  downloadUrl: string;
+  downloadUrl: string;   // data: URI — works for iOS long-press save AND programmatic download
   sizeBefore: number;    // bytes
   sizeAfter: number;     // bytes
   sizeReductionPct: number;
   pixelsModified: number;
   quality: number;       // 0-100
-  hashBefore: string;    // first 16 hex chars of SHA-256
+  hashBefore: string;    // first 32 hex chars of SHA-256
   hashAfter: string;
   metadataRemoved: string[];
   width: number;
@@ -102,14 +104,11 @@ function detectMetadataTypes(bytes: Uint8Array): string[] {
     found.push("Leonardo AI Signature");
   }
 
-  // GPS: look for GPS IFD marker in EXIF
-  if (text.includes("GPS") || bytes.includes(0x88) /* GPS IFD tag 0x8825 */) {
-    // More precise check: GPS IFD tag is 0x8825
-    for (let i = 0; i < Math.min(bytes.length - 2, 65536); i++) {
-      if (bytes[i] === 0x88 && bytes[i + 1] === 0x25) {
-        found.push("GPS Location");
-        break;
-      }
+  // GPS: look for GPS IFD tag 0x8825
+  for (let i = 0; i < Math.min(bytes.length - 2, 65536); i++) {
+    if (bytes[i] === 0x88 && bytes[i + 1] === 0x25) {
+      found.push("GPS Location");
+      break;
     }
   }
 
@@ -121,21 +120,10 @@ function detectMetadataTypes(bytes: Uint8Array): string[] {
   return found;
 }
 
-// Helper: Uint8Array.includes polyfill
-declare global {
-  interface Uint8Array {
-    includes(value: number): boolean;
-  }
-}
-if (!Uint8Array.prototype.includes) {
-  (Uint8Array.prototype as any).includes = function(value: number) {
-    return Array.prototype.includes.call(this, value);
-  };
-}
-
 /**
  * Core processing function.
  * Strips all metadata via Canvas re-render, then applies pixel-level modification.
+ * Returns downloadUrl as a data: URI so iOS Safari can long-press save to Photos.
  */
 export async function processImage(file: File): Promise<ProcessedImageResult> {
   // ── Step 1: Read original bytes & compute hash ────────────────────────────
@@ -166,14 +154,12 @@ export async function processImage(file: File): Promise<ProcessedImageResult> {
   ctx.drawImage(img, 0, 0);
 
   // ── Step 4: Pixel-level fingerprint modification ──────────────────────────
-  // Modify every 8th pixel in a deterministic pattern using a seeded approach.
-  // Change: apply +1 to R channel of selected pixels (imperceptible, changes hash).
+  // Modify every Nth pixel in a deterministic pattern.
+  // Change: apply +1/-1 alternating to R/G channels (imperceptible, changes hash).
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data; // RGBA flat array
   let pixelsModified = 0;
 
-  // Use a simple LCG-based pseudo-random pattern for pixel selection
-  // This ensures the modification is spread across the image
   const totalPixels = width * height;
   const step = Math.max(1, Math.floor(totalPixels / 10000)); // modify ~10k pixels max
 
@@ -181,16 +167,12 @@ export async function processImage(file: File): Promise<ProcessedImageResult> {
     const idx = i * 4;
     if (idx + 3 >= data.length) break;
 
-    // Alternate between +1 and -1 based on position for natural distribution
     const delta = (i % 2 === 0) ? 1 : -1;
 
     // Clamp R channel: 0-255
-    const r = data[idx];
-    data[idx] = Math.max(0, Math.min(255, r + delta));
-
+    data[idx] = Math.max(0, Math.min(255, data[idx] + delta));
     // Also slightly modify G for better hash change
-    const g = data[idx + 1];
-    data[idx + 1] = Math.max(0, Math.min(255, g + (delta * -1)));
+    data[idx + 1] = Math.max(0, Math.min(255, data[idx + 1] + (delta * -1)));
 
     pixelsModified++;
   }
@@ -214,8 +196,14 @@ export async function processImage(file: File): Promise<ProcessedImageResult> {
   const cleanBuffer = await cleanBlob.arrayBuffer();
   const hashAfter = (await sha256Hex(cleanBuffer)).slice(0, 32);
 
-  // ── Step 7: Build download URL ────────────────────────────────────────────
-  const downloadUrl = URL.createObjectURL(cleanBlob);
+  // ── Step 7: Build download URL as data: URI ───────────────────────────────
+  // iOS Safari cannot long-press-save blob: URLs (shows "no internet connection").
+  // Converting to a data: URL (Base64) allows native long-press save to Photos on iPhone.
+  const downloadUrl = await new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.readAsDataURL(cleanBlob);
+  });
 
   // ── Step 8: Compute stats ─────────────────────────────────────────────────
   const sizeBefore = file.size;
