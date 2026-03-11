@@ -1107,6 +1107,17 @@ export default function Home() {
             <a href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">How It Works</a>
             <a href="#comparison" className="text-muted-foreground hover:text-foreground transition-colors">Compare</a>
             <a href="#faq" className="text-muted-foreground hover:text-foreground transition-colors">FAQ</a>
+            <a
+              href="/image-diff"
+              className="flex items-center gap-1.5 text-cyan/80 hover:text-cyan transition-colors font-medium"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="1" y="3" width="6" height="10" rx="1" />
+                <rect x="9" y="3" width="6" height="10" rx="1" />
+                <path d="M7 8h2" strokeLinecap="round" />
+              </svg>
+              Image Diff
+            </a>
           </div>
           <a
             href="#upload"
@@ -1211,6 +1222,39 @@ export default function Home() {
             <StatCard value={99} suffix="%" label="Detection Bypass Rate" started={statsStarted} />
             <StatCard value={8} suffix="" label="Metadata Types Removed" started={statsStarted} />
             <StatCard value={0} suffix="ms" label="Server Upload Time" started={statsStarted} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Tool Matrix Banner ── */}
+      <div className="border-b border-border bg-card/30">
+        <div className="container py-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span className="font-mono-custom text-cyan/60 mr-1">TOOLS:</span>
+            <a
+              href="#upload"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan/10 border border-cyan/20 text-cyan font-medium hover:bg-cyan/15 transition-colors"
+            >
+              <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M8 2v8M4 6l4-4 4 4" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M2 13h12" strokeLinecap="round" />
+              </svg>
+              AI Metadata Remover
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-cyan/20 text-[9px] font-bold">FREE</span>
+            </a>
+            <span className="text-border">·</span>
+            <a
+              href="/image-diff"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-muted-foreground hover:border-cyan/30 hover:text-cyan transition-colors"
+            >
+              <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="1" y="3" width="6" height="10" rx="1" />
+                <rect x="9" y="3" width="6" height="10" rx="1" />
+                <path d="M7 8h2" strokeLinecap="round" />
+              </svg>
+              Image Diff Tool
+            </a>
+            <span className="ml-auto text-[10px] text-muted-foreground/50 hidden sm:block">blankai.app</span>
           </div>
         </div>
       </div>
@@ -1575,9 +1619,19 @@ export default function Home() {
               </div>
             </div>
             <div>
-              <h4 className="font-display font-semibold text-foreground text-sm mb-3">Tool</h4>
+              <h4 className="font-display font-semibold text-foreground text-sm mb-3">Tools</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><a href="#upload" className="hover:text-foreground transition-colors">Remove AI Metadata</a></li>
+                <li>
+                  <a href="/image-diff" className="flex items-center gap-1.5 hover:text-cyan transition-colors">
+                    <svg className="w-3 h-3 text-cyan/60" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <rect x="1" y="3" width="6" height="10" rx="1" />
+                      <rect x="9" y="3" width="6" height="10" rx="1" />
+                      <path d="M7 8h2" strokeLinecap="round" />
+                    </svg>
+                    Image Diff Tool
+                  </a>
+                </li>
                 <li><a href="#features" className="hover:text-foreground transition-colors">Features</a></li>
                 <li><a href="#how-it-works" className="hover:text-foreground transition-colors">How It Works</a></li>
                 <li><a href="#comparison" className="hover:text-foreground transition-colors">Compare Tools</a></li>
@@ -1598,7 +1652,8 @@ export default function Home() {
               © 2025 BlankAI (blankai.app) — Free AI Metadata Remover
             </p>
             <p className="text-muted-foreground text-xs">
-              Remove AI metadata · AI pixel remover · Undetectable AI image tool
+              Remove AI metadata · AI pixel remover · Undetectable AI image tool ·{" "}
+              <a href="/image-diff" className="hover:text-cyan transition-colors">Image Diff Tool</a>
             </p>
           </div>
         </div>
