@@ -181,12 +181,20 @@ export async function processImage(file: File): Promise<ProcessedImageResult> {
 
 export async function processImages(
   files: File[],
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
+  minMsPerImage = 1000
 ): Promise<ProcessedImageResult[]> {
   const results: ProcessedImageResult[] = [];
   for (let i = 0; i < files.length; i++) {
     onProgress?.(i, files.length);
-    results.push(await processImage(files[i]));
+    const start = performance.now();
+    const result = await processImage(files[i]);
+    // Enforce minimum animation duration so users can see the processing state
+    const elapsed = performance.now() - start;
+    if (elapsed < minMsPerImage) {
+      await new Promise<void>((resolve) => setTimeout(resolve, minMsPerImage - elapsed));
+    }
+    results.push(result);
   }
   onProgress?.(files.length, files.length);
   return results;

@@ -12,6 +12,8 @@ import JSZip from "jszip";
 import BlogSection from "@/components/BlogSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
 import WaitlistSection from "@/components/WaitlistSection";
+import SiteHeader from "@/components/SiteHeader";
+import SiteFooter from "@/components/SiteFooter";
 import {
   Shield,
   Zap,
@@ -1092,42 +1094,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background hex-grid-bg">
       {/* ── Navigation ── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 backdrop-blur-md bg-background/80">
-        <div className="container flex items-center justify-between h-16">
-          <a href="/" className="flex items-center gap-2.5 group" aria-label="BlankAI Home">
-            <div className="w-8 h-8 rounded-lg gradient-cyan flex items-center justify-center">
-              <EyeOff className="w-4 h-4 text-navy" />
-            </div>
-            <span className="font-display font-bold text-xl text-foreground">
-              blank<span className="text-cyan">AI</span>
-            </span>
-          </a>
-          <div className="hidden md:flex items-center gap-6 text-sm">
-            <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">Features</a>
-            <a href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">How It Works</a>
-            <a href="#comparison" className="text-muted-foreground hover:text-foreground transition-colors">Compare</a>
-            <a href="#faq" className="text-muted-foreground hover:text-foreground transition-colors">FAQ</a>
-            <a
-              href="/image-diff"
-              className="flex items-center gap-1.5 text-cyan/80 hover:text-cyan transition-colors font-medium"
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <rect x="1" y="3" width="6" height="10" rx="1" />
-                <rect x="9" y="3" width="6" height="10" rx="1" />
-                <path d="M7 8h2" strokeLinecap="round" />
-              </svg>
-              Image Diff
-            </a>
-          </div>
-          <a
-            href="#upload"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg gradient-cyan text-navy font-semibold text-sm hover:opacity-90 transition-opacity"
-          >
-            <Zap className="w-3.5 h-3.5" />
-            Try Free
-          </a>
-        </div>
-      </nav>
+      <SiteHeader showAnchorLinks />
 
       {/* ── Hero Section ── */}
       <section
@@ -1598,66 +1565,7 @@ export default function Home() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-border py-12">
-        <div className="container">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-            <div className="md:col-span-2">
-              <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-8 h-8 rounded-lg gradient-cyan flex items-center justify-center">
-                  <EyeOff className="w-4 h-4 text-navy" />
-                </div>
-                <span className="font-display font-bold text-xl text-foreground">
-                  blank<span className="text-cyan">AI</span>
-                </span>
-              </div>
-              <p className="text-muted-foreground text-sm leading-relaxed max-w-xs">
-                The most advanced free AI metadata remover. Strip EXIF, C2PA, GPS, and AI pixel fingerprints to make images undetectable — entirely in your browser.
-              </p>
-              <div className="flex items-center gap-2 mt-4 text-xs text-muted-foreground font-mono-custom">
-                <Lock className="w-3 h-3 text-cyan" />
-                blankai.app
-              </div>
-            </div>
-            <div>
-              <h4 className="font-display font-semibold text-foreground text-sm mb-3">Tools</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#upload" className="hover:text-foreground transition-colors">Remove AI Metadata</a></li>
-                <li>
-                  <a href="/image-diff" className="flex items-center gap-1.5 hover:text-cyan transition-colors">
-                    <svg className="w-3 h-3 text-cyan/60" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <rect x="1" y="3" width="6" height="10" rx="1" />
-                      <rect x="9" y="3" width="6" height="10" rx="1" />
-                      <path d="M7 8h2" strokeLinecap="round" />
-                    </svg>
-                    Image Diff Tool
-                  </a>
-                </li>
-                <li><a href="#features" className="hover:text-foreground transition-colors">Features</a></li>
-                <li><a href="#how-it-works" className="hover:text-foreground transition-colors">How It Works</a></li>
-                <li><a href="#comparison" className="hover:text-foreground transition-colors">Compare Tools</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-display font-semibold text-foreground text-sm mb-3">Resources</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#faq" className="hover:text-foreground transition-colors">FAQ</a></li>
-                <li><a href="#use-cases" className="hover:text-foreground transition-colors">Use Cases</a></li>
-                <li><a href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</a></li>
-                <li><a href="/terms" className="hover:text-foreground transition-colors">Terms of Service</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-border pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-muted-foreground text-xs font-mono-custom">
-              © 2025 BlankAI (blankai.app) — Free AI Metadata Remover
-            </p>
-            <p className="text-muted-foreground text-xs">
-              Remove AI metadata · AI pixel remover · Undetectable AI image tool ·{" "}
-              <a href="/image-diff" className="hover:text-cyan transition-colors">Image Diff Tool</a>
-            </p>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

@@ -18,6 +18,8 @@ import {
   Flame, ChevronDown, ChevronUp, CheckCircle2, Shield,
   Hash, HardDrive, Zap, Info, X, ArrowRight
 } from "lucide-react";
+import SiteHeader from "@/components/SiteHeader";
+import SiteFooter from "@/components/SiteFooter";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ViewMode = "sidebyside" | "overlay" | "slider" | "heatmap";
@@ -355,6 +357,15 @@ export default function ImageDiff() {
   const [diff, setDiff] = useState<DiffResult | null>(null);
   const [computing, setComputing] = useState(false);
   const [verifyMode, setVerifyMode] = useState(false);
+  // Instant feedback: show skeleton on first render, then fade in real content
+  const [isReady, setIsReady] = useState(false);
+  useEffect(() => {
+    // Use requestAnimationFrame to ensure DOM is painted before marking ready
+    const raf = requestAnimationFrame(() => {
+      setTimeout(() => setIsReady(true), 60);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   // Check sessionStorage for Verify Clean data (passed from Home results panel)
   useEffect(() => {
@@ -433,8 +444,38 @@ export default function ImageDiff() {
 
   const bothLoaded = !!slotA.dataUrl && !!slotB.dataUrl;
 
+  if (!isReady) {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <SiteHeader breadcrumb="Image Diff" />
+        {/* Skeleton loader — shows instantly while JS hydrates */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-28 pb-10">
+          {/* Title skeleton */}
+          <div className="mb-8 text-center">
+            <div className="h-8 w-64 rounded-lg bg-muted/60 mx-auto mb-3" style={{ animation: "shimmer 1.5s ease infinite", backgroundSize: "200% 100%", background: "linear-gradient(90deg, oklch(0.22 0.01 220) 0%, oklch(0.28 0.01 220) 50%, oklch(0.22 0.01 220) 100%)" }} />
+            <div className="h-4 w-96 max-w-full rounded bg-muted/40 mx-auto" style={{ animation: "shimmer 1.5s ease 0.1s infinite", backgroundSize: "200% 100%", background: "linear-gradient(90deg, oklch(0.22 0.01 220) 0%, oklch(0.28 0.01 220) 50%, oklch(0.22 0.01 220) 100%)" }} />
+          </div>
+          {/* Upload panels skeleton */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {[0, 1].map((i) => (
+              <div key={i} className="rounded-xl border border-border bg-card/50 p-6" style={{ animation: `shimmer 1.5s ease ${i * 0.15}s infinite`, backgroundSize: "200% 100%", background: "linear-gradient(90deg, oklch(0.18 0.01 220) 0%, oklch(0.22 0.01 220) 50%, oklch(0.18 0.01 220) 100%)" }}>
+                <div className="h-4 w-24 rounded bg-muted/40 mb-4" />
+                <div className="h-36 rounded-lg bg-muted/20" />
+              </div>
+            ))}
+          </div>
+          {/* Button skeleton */}
+          <div className="flex justify-center">
+            <div className="h-10 w-40 rounded-xl bg-cyan/20" style={{ animation: "shimmer 1.5s ease 0.3s infinite" }} />
+          </div>
+        </div>
+        <SiteFooter />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground" style={{ animation: "fadeIn 0.3s ease" }}>
       {/* ── SEO structured data ── */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
         "@context": "https://schema.org",
@@ -449,32 +490,7 @@ export default function ImageDiff() {
       })}} />
 
       {/* ── Nav ── */}
-      <nav className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors text-sm">
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Back</span>
-            </Link>
-            <div className="w-px h-4 bg-border" />
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md bg-cyan/10 border border-cyan/30 flex items-center justify-center">
-                <Shield className="w-3.5 h-3.5 text-cyan" />
-              </div>
-              <span className="font-display font-bold text-foreground text-sm">blankAI</span>
-            </Link>
-            <span className="text-muted-foreground text-sm">/</span>
-            <span className="text-foreground text-sm font-medium">Image Diff</span>
-          </div>
-          <Link
-            href="/"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg gradient-cyan text-navy text-xs font-bold hover:opacity-90 transition-opacity"
-          >
-            <Zap className="w-3 h-3" />
-            Remove Metadata
-          </Link>
-        </div>
-      </nav>
+      <SiteHeader breadcrumb="Image Diff" />
 
       {/* ── Hero ── */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-6">
@@ -799,22 +815,7 @@ export default function ImageDiff() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-border bg-card/30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded bg-cyan/10 border border-cyan/20 flex items-center justify-center">
-              <Shield className="w-3 h-3 text-cyan" />
-            </div>
-            <span className="font-display font-bold text-foreground text-sm">blankAI</span>
-            <span className="text-muted-foreground text-xs">— Image Diff Tool</span>
-          </div>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
-            <Link href="/image-diff" className="hover:text-foreground transition-colors">Image Diff</Link>
-            <span>© 2025 BlankAI. All rights reserved.</span>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
