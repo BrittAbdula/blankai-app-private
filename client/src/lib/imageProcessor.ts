@@ -182,7 +182,7 @@ export async function processImage(file: File): Promise<ProcessedImageResult> {
 export async function processImages(
   files: File[],
   onProgress?: (current: number, total: number) => void,
-  minMsPerImage = 1000
+  minMsPerImage = 2500
 ): Promise<ProcessedImageResult[]> {
   const results: ProcessedImageResult[] = [];
   for (let i = 0; i < files.length; i++) {

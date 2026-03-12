@@ -703,6 +703,16 @@ function UploadZone() {
   return (
     <div className="w-full">
 
+      {/* ── Persistent hidden file input — always in DOM so inputRef never goes stale ── */}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif,.heic,.heif"
+        multiple
+        className="hidden"
+        onChange={handleChange}
+      />
+
       {/* ──────────────────────────────────────────────────────────────────────────────────────────────────── */}
       {/* STAGE: IDLE — Drop Zone */}
       {/* ──────────────────────────────────────────────────────────────────────────────────────────────────── */}
@@ -720,14 +730,6 @@ function UploadZone() {
           role="button"
           aria-label="Upload images to remove AI metadata"
         >
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif,.heic,.heif"
-            multiple
-            className="hidden"
-            onChange={handleChange}
-          />
           <div className="flex flex-col items-center gap-4">
             <div className={`w-16 h-16 rounded-2xl bg-cyan/10 border border-cyan/20 flex items-center justify-center transition-all ${isDragging ? "animate-pulse-glow" : ""}`}>
               <Upload className="w-7 h-7 text-cyan" />
