@@ -16,6 +16,12 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://blankai.app/exif-viewer</loc>
+    <lastmod>2026-03-13</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://blankai.app/blog</loc>
     <lastmod>2026-03-12</lastmod>
     <changefreq>weekly</changefreq>

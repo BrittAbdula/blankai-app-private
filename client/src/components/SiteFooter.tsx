@@ -68,14 +68,14 @@ export default function SiteFooter() {
                 </Link>
               </li>
               <li>
-                <span className="text-muted-foreground/40 flex items-center gap-1.5 cursor-default">
-                  <svg className="w-3 h-3 opacity-40" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <circle cx="8" cy="8" r="6" />
-                    <path d="M8 5v3l2 2" strokeLinecap="round" />
+                <Link href="/exif-viewer" className="hover:text-foreground transition-colors flex items-center gap-1.5">
+                  <svg className="w-3 h-3 text-cyan/60" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="8" cy="8" r="5" />
+                    <circle cx="8" cy="8" r="2" />
+                    <path d="M8 1v2M8 13v2M1 8h2M13 8h2" strokeLinecap="round" />
                   </svg>
                   EXIF Viewer
-                  <span className="text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground/60">Soon</span>
-                </span>
+                </Link>
               </li>
             </ul>
           </div>
@@ -125,6 +125,7 @@ export default function SiteFooter() {
             © {new Date().getFullYear()} BlankAI. All rights reserved. Free{" "}
             <Link href="/" className="text-cyan/70 hover:text-cyan transition-colors">AI metadata remover</Link>{" · "}
             <Link href="/image-diff" className="text-cyan/70 hover:text-cyan transition-colors">Image Diff Tool</Link>{" · "}
+            <Link href="/exif-viewer" className="text-cyan/70 hover:text-cyan transition-colors">EXIF Viewer</Link>{" · "}
             <Link href="/blog" className="text-cyan/70 hover:text-cyan transition-colors">Blog</Link>.
           </p>
           <div className="flex items-center gap-2">

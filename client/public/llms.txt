@@ -26,6 +26,7 @@ BlankAI addresses a specific technical problem: AI image generators (DALL-E, Mid
 - Before/after file size comparison
 - ZIP download for batch results
 - Image comparison tool at /image-diff (pixel diff, heatmap, overlay, slider views)
+- EXIF Viewer tool at /exif-viewer: inspect all metadata fields grouped by category, detect AI signatures and GPS risks, export as JSON/CSV
 - 100% free, no account required, no watermarks
 
 ## Privacy Model
@@ -54,6 +55,7 @@ BlankAI operates on a strict zero-upload architecture. The tool uses the browser
 
 - `/` — Main tool: AI metadata remover with upload zone, processing pipeline, results panel
 - `/image-diff` — Image comparison tool: pixel diff, heatmap, overlay, and slider views; also used to verify metadata removal
+- `/exif-viewer` — EXIF Viewer tool: upload any image to inspect all embedded metadata fields grouped by category (file info, AI metadata, GPS, camera, exposure, dates, IPTC, XMP, color profile). Detects AI-generated images, GPS privacy risks, and sensitive metadata. Export report as JSON or CSV.
 - `/blog` — Educational articles about AI metadata, C2PA, EXIF, and undetectable AI images
 - `/blog/how-to-remove-ai-metadata` — Complete guide to removing AI metadata from images
 - `/blog/undetectable-ai-images-guide` — How to make AI images undetectable

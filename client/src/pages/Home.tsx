@@ -1232,7 +1232,19 @@ export default function Home() {
                 <rect x="9" y="3" width="6" height="10" rx="1" />
                 <path d="M7 8h2" strokeLinecap="round" />
               </svg>
-              Image Diff Tool
+              Image Diff
+            </a>
+            <span className="text-border">·</span>
+            <a
+              href="/exif-viewer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-muted-foreground hover:border-cyan/30 hover:text-cyan transition-colors"
+            >
+              <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="8" cy="8" r="5" />
+                <circle cx="8" cy="8" r="2" />
+                <path d="M8 1v2M8 13v2M1 8h2M13 8h2" strokeLinecap="round" />
+              </svg>
+              EXIF Viewer
             </a>
             <span className="ml-auto text-[10px] text-muted-foreground/50 hidden sm:block">blankai.app</span>
           </div>
