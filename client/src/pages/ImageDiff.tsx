@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import { usePageMeta } from "@/hooks/usePageMeta";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ViewMode = "sidebyside" | "overlay" | "slider" | "heatmap";
@@ -357,6 +358,15 @@ export default function ImageDiff() {
   const [diff, setDiff] = useState<DiffResult | null>(null);
   const [computing, setComputing] = useState(false);
   const [verifyMode, setVerifyMode] = useState(false);
+  // Dynamic page meta (canonical, title, description)
+  usePageMeta({
+    title: "Image Diff Tool — Compare Images Pixel by Pixel | BlankAI",
+    description: "Free online image comparison tool. Upload two images to compare pixel differences, verify AI metadata removal, and view side-by-side, overlay, slider, or heatmap diffs.",
+    canonical: "https://blankai.app/image-diff",
+    ogTitle: "Image Diff Tool — Compare Images Pixel by Pixel | BlankAI",
+    ogDescription: "Free online image comparison tool. Compare pixel differences, verify AI metadata removal with side-by-side, overlay, slider, and heatmap views.",
+  });
+
   // Instant feedback: show skeleton on first render, then fade in real content
   const [isReady, setIsReady] = useState(false);
   useEffect(() => {

@@ -3,21 +3,24 @@
  * Blog listing page: SEO-optimized, category filters, EEAT-compliant article cards
  * Target keywords: ai metadata removal, remove ai metadata, c2pa remover, undetectable ai image
  */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "wouter";
 import { Clock, ArrowRight, BookOpen, Tag } from "lucide-react";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import { blogPosts, categories } from "@/data/blogPosts";
+import { usePageMeta } from "@/hooks/usePageMeta";
 
 export default function Blog() {
   const [activeCategory, setActiveCategory] = useState<string>("All");
 
-  useEffect(() => {
-    document.title = "Blog — AI Metadata Removal Guides & Tutorials | BlankAI";
-    const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute("content", "Expert guides on removing AI metadata, C2PA credentials, EXIF data, and pixel fingerprints from AI-generated images. Learn how to make images undetectable.");
-  }, []);
+  usePageMeta({
+    title: "Blog — AI Metadata Removal Guides & Tutorials | BlankAI",
+    description: "Expert guides on removing AI metadata, C2PA credentials, EXIF data, and pixel fingerprints from AI-generated images. Learn how to make images undetectable.",
+    canonical: "https://blankai.app/blog",
+    ogTitle: "BlankAI Blog — AI Metadata Removal Guides & Tutorials",
+    ogDescription: "Expert guides on removing AI metadata, C2PA credentials, EXIF data, and pixel fingerprints from AI-generated images.",
+  });
 
   const filtered = activeCategory === "All"
     ? blogPosts

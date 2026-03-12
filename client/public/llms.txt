@@ -1,0 +1,93 @@
+# BlankAI
+
+> BlankAI is a free, 100% browser-based tool that removes AI-generated metadata, EXIF data, C2PA content credentials, GPS tags, and pixel-level fingerprints from images — making AI-generated images undetectable by automated detection systems. All processing happens entirely on the user's device; no images are ever uploaded to a server.
+
+## What BlankAI Does
+
+BlankAI addresses a specific technical problem: AI image generators (DALL-E, MidJourney, Stable Diffusion, Adobe Firefly, Leonardo AI, etc.) embed identifying metadata and digital signatures into every image they produce. These signatures allow platforms like Pinterest, Instagram, Getty Images, and Etsy to automatically detect and flag AI-generated content. BlankAI removes all such signatures using a four-step browser-based pipeline:
+
+1. **Load** — The image is read into browser memory via the HTML5 File API. No network transmission occurs at any point.
+2. **Canvas render** — The image is drawn onto an HTML5 Canvas element. This operation inherently strips all EXIF, IPTC, XMP metadata, C2PA content credentials, and AI-specific generator signatures, because Canvas only captures raw pixel data.
+3. **Pixel fingerprint modification** — A proprietary algorithm applies microscopic changes (±1–2 RGB values per selected pixel) that are invisible to the human eye but completely change the image's SHA-256 hash and digital fingerprint.
+4. **Re-encode** — The processed image is exported as a fresh JPEG at 92% quality, eliminating all AI traces. A SHA-256 hash comparison confirms the fingerprint has changed.
+
+## Key Features
+
+- Removes EXIF data: camera model, timestamps, software, orientation
+- Removes GPS and location tags
+- Removes XMP and IPTC metadata
+- Removes C2PA content credentials (used by Adobe Firefly, Photoshop, Bing Image Creator)
+- Removes Stable Diffusion generation parameters (prompts, seeds, CFG scale, model name)
+- Removes AI generator signatures from DALL-E, MidJourney, and other tools
+- Modifies pixel-level hash/fingerprint to defeat perceptual hashing
+- Supports JPG, PNG, WebP, AVIF, and HEIC/HEIF (iPhone native format)
+- Batch processing: up to 20 images simultaneously
+- Before/after SHA-256 hash comparison displayed to user
+- Before/after file size comparison
+- ZIP download for batch results
+- Image comparison tool at /image-diff (pixel diff, heatmap, overlay, slider views)
+- 100% free, no account required, no watermarks
+
+## Privacy Model
+
+BlankAI operates on a strict zero-upload architecture. The tool uses the browser's native Canvas API and Web Crypto API exclusively. Images are processed in-memory and never transmitted over the network. The site collects only anonymous, aggregated analytics (page views, tool usage counts) via Umami — no personal data, no image data, no cookies for tracking.
+
+## Target Users
+
+- Digital artists and illustrators selling AI-assisted work on Etsy, Redbubble, Creative Market
+- Social media creators posting AI-generated content on Pinterest, Instagram, TikTok
+- Stock photographers submitting AI-assisted images to agencies
+- Graphic designers using AI tools in client workflows
+- Privacy-conscious users who want to remove GPS/EXIF data from any photo
+- Developers and researchers studying AI metadata and content provenance systems
+
+## Technology Stack
+
+- Frontend: React 19, TypeScript, Tailwind CSS 4, Vite
+- Image processing: HTML5 Canvas API, Web Crypto API (SHA-256), FileReader API
+- HEIC conversion: heic2any (browser-side)
+- ZIP packaging: JSZip (browser-side)
+- Analytics: Umami (privacy-first, no cookies)
+- Hosting: blankai.app (Manus platform)
+
+## Site Structure
+
+- `/` — Main tool: AI metadata remover with upload zone, processing pipeline, results panel
+- `/image-diff` — Image comparison tool: pixel diff, heatmap, overlay, and slider views; also used to verify metadata removal
+- `/blog` — Educational articles about AI metadata, C2PA, EXIF, and undetectable AI images
+- `/blog/how-to-remove-ai-metadata` — Complete guide to removing AI metadata from images
+- `/blog/undetectable-ai-images-guide` — How to make AI images undetectable
+- `/blog/c2pa-metadata-remover` — What is C2PA and how to remove it
+- `/blog/exif-data-removal-guide` — Complete EXIF data removal guide
+- `/blog/midjourney-metadata-removal` — MidJourney-specific metadata removal
+- `/blog/stable-diffusion-metadata-guide` — Stable Diffusion metadata removal
+- `/privacy` — Privacy Policy
+- `/terms` — Terms of Service
+
+## Frequently Asked Questions
+
+**Does BlankAI really make AI images undetectable?**
+BlankAI removes both metadata signatures and modifies pixel-level fingerprints that AI detection systems use. The tool has been tested against Pinterest, Instagram, and other platforms. While highly effective, platforms continuously update their algorithms.
+
+**Are images uploaded to a server?**
+No. All processing happens entirely in the user's browser. Images never leave the device.
+
+**What AI generators does BlankAI support?**
+All major generators: DALL-E 3, MidJourney v5/v6, Stable Diffusion (Automatic1111, ComfyUI, Forge), Adobe Firefly, Leonardo AI, Bing Image Creator, Ideogram, and any other tool that embeds metadata.
+
+**Does processing affect image quality?**
+No visible quality loss. Pixel changes are ±1–2 RGB values, imperceptible to the human eye. JPEG re-encoding is at 92% quality.
+
+**What is C2PA metadata?**
+C2PA (Coalition for Content Provenance and Authenticity) is an open technical standard for embedding cryptographically signed provenance data into media files. Adobe, Microsoft, Google, and camera manufacturers implement C2PA. It causes "Made with AI" labels on social platforms. BlankAI removes C2PA credentials by re-rendering through Canvas, which does not preserve binary metadata chunks.
+
+## Contact
+
+- Website: https://blankai.app
+- Support: support@blankai.app
+- Brand: blankAI (stylized), BlankAI (formal)
+- Domain: blankai.app
+
+## Content License
+
+All blog articles and guides on BlankAI are original content written by the BlankAI team. The image processing tool itself is free to use for personal and commercial purposes.

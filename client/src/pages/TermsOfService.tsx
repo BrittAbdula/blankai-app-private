@@ -7,10 +7,18 @@
 import { useEffect } from "react";
 import { Link } from "wouter";
 import { EyeOff, ArrowLeft, FileText, AlertTriangle, Mail } from "lucide-react";
+import { usePageMeta } from "@/hooks/usePageMeta";
 
 export default function TermsOfService() {
+  usePageMeta({
+    title: "Terms of Service | BlankAI — AI Metadata Remover",
+    description: "BlankAI Terms of Service. Free browser-based AI metadata remover. Read our usage terms, intellectual property policy, and liability disclaimer.",
+    canonical: "https://blankai.app/terms",
+    ogTitle: "Terms of Service | BlankAI",
+    ogDescription: "BlankAI Terms of Service. Free browser-based AI metadata remover. Read our usage terms and policies.",
+  });
+
   useEffect(() => {
-    document.title = "Terms of Service | BlankAI — AI Metadata Remover";
     window.scrollTo(0, 0);
   }, []);
 

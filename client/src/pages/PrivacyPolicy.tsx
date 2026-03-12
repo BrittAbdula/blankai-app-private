@@ -7,10 +7,18 @@
 import { useEffect } from "react";
 import { Link } from "wouter";
 import { EyeOff, ArrowLeft, Shield, Lock, Server, Eye, Trash2, Mail, Globe } from "lucide-react";
+import { usePageMeta } from "@/hooks/usePageMeta";
 
 export default function PrivacyPolicy() {
+  usePageMeta({
+    title: "Privacy Policy | BlankAI — AI Metadata Remover",
+    description: "BlankAI Privacy Policy. We never store, upload, or access your images. All processing is 100% browser-based. Learn how we protect your privacy.",
+    canonical: "https://blankai.app/privacy",
+    ogTitle: "Privacy Policy | BlankAI",
+    ogDescription: "BlankAI never stores or uploads your images. All processing is 100% browser-based and private.",
+  });
+
   useEffect(() => {
-    document.title = "Privacy Policy | BlankAI — AI Metadata Remover";
     window.scrollTo(0, 0);
   }, []);
 

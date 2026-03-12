@@ -11,6 +11,7 @@ import {
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import { getPostBySlug, getRelatedPosts, type BlogPost, type BlogSection } from "@/data/blogPosts";
+import { usePageMeta } from "@/hooks/usePageMeta";
 
 // ─── Section Renderer ─────────────────────────────────────────────────────────
 function RenderSection({ section }: { section: BlogSection }) {
@@ -157,16 +158,36 @@ export default function BlogPostPage() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
   const [post, setPost] = useState<BlogPost | null | undefined>(undefined);
+  const [readProgress, setReadProgress] = useState(0);
 
   useEffect(() => {
     const found = getPostBySlug(slug);
     setPost(found || null);
-    if (found) {
-      document.title = `${found.title} | BlankAI Blog`;
-      const meta = document.querySelector('meta[name="description"]');
-      if (meta) meta.setAttribute("content", found.description);
-    }
+    // Reset progress on slug change
+    setReadProgress(0);
   }, [slug]);
+
+  // Dynamic canonical + meta per article
+  usePageMeta({
+    title: post ? `${post.title} | BlankAI Blog` : "BlankAI Blog",
+    description: post?.description ?? "Expert guides on removing AI metadata, C2PA credentials, EXIF data, and pixel fingerprints from AI-generated images.",
+    canonical: post ? `https://blankai.app/blog/${post.slug}` : "https://blankai.app/blog",
+    ogTitle: post ? `${post.title} | BlankAI Blog` : "BlankAI Blog",
+    ogDescription: post?.description,
+    ogImage: post?.coverImage,
+  });
+
+  // Reading progress scroll listener
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = docHeight > 0 ? Math.min(100, (scrollTop / docHeight) * 100) : 0;
+      setReadProgress(progress);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   // Loading
   if (post === undefined) {
@@ -206,6 +227,21 @@ export default function BlogPostPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {/* Reading progress bar */}
+      <div
+        className="fixed top-0 left-0 z-[100] h-[3px] transition-all duration-100 ease-out"
+        style={{
+          width: `${readProgress}%`,
+          background: "linear-gradient(90deg, #06b6d4, #0891b2, #22d3ee)",
+          boxShadow: "0 0 8px rgba(6,182,212,0.6)",
+        }}
+        role="progressbar"
+        aria-valuenow={Math.round(readProgress)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Reading progress"
+      />
+
       {/* SEO structured data */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
         "@context": "https://schema.org",
