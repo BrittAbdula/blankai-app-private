@@ -635,12 +635,23 @@ function UploadZone() {
 
   const handleFilesSelected = async (selectedFiles: File[]) => {
     if (!selectedFiles.length) return;
-    const previews = await generatePreviews(selectedFiles);
-    setFiles(selectedFiles);
-    setFilePreviews(previews);
+
+    // In staged mode: APPEND new files (deduplicate by name+size, cap at 20 total)
+    const existing = stage === "staged" ? files : [];
+    const existingPreviews = stage === "staged" ? filePreviews : [];
+    const existingKeys = new Set(existing.map(f => `${f.name}-${f.size}`));
+    const incoming = selectedFiles.filter(f => !existingKeys.has(`${f.name}-${f.size}`));
+    const merged = [...existing, ...incoming].slice(0, 20);
+    const incomingPreviews = await generatePreviews(incoming);
+    const mergedPreviews = [...existingPreviews, ...incomingPreviews].slice(0, 20);
+
+    setFiles(merged);
+    setFilePreviews(mergedPreviews);
     setStage("staged");
     setErrorMsg(null);
     setResults([]);
+    // Clear input so the same file can be re-selected next time
+    if (inputRef.current) inputRef.current.value = "";
   };
 
   const startProcessing = async () => {
