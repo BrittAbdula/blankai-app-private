@@ -11,7 +11,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   Upload, File, Camera, MapPin, Clock, FileText, Layers, Palette,
   Image, Cpu, AlertTriangle, Shield, Download, RefreshCw,
@@ -321,14 +321,18 @@ export default function ExifViewer() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [, navigate] = useLocation();
 
   // Navigate to home with current file pre-loaded into the metadata remover
   const goToRemover = useCallback((file: File | null) => {
-    if (!file) { window.location.href = "/"; return; }
+    if (!file) {
+      navigate("/#upload");
+      return;
+    }
     // Store file in a module-level variable (sessionStorage can't hold File objects)
     (window as unknown as Record<string, unknown>).__blankai_pending_file = file;
-    window.location.href = "/#upload";
-  }, []);
+    navigate("/");
+  }, [navigate]);
 
   useEffect(() => {
     const t = setTimeout(() => setIsReady(true), 60);

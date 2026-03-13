@@ -76,30 +76,21 @@ export default function TestimonialsSection() {
             <div
               key={t.name}
               className="bg-card border border-border rounded-xl p-5 card-hover"
-              itemScope
-              itemType="https://schema.org/Review"
             >
-              <div itemProp="itemReviewed" itemScope itemType="https://schema.org/SoftwareApplication">
-                <meta itemProp="name" content="BlankAI" />
-              </div>
-              <div itemProp="reviewRating" itemScope itemType="https://schema.org/Rating">
-                <meta itemProp="ratingValue" content={String(t.rating)} />
-                <meta itemProp="bestRating" content="5" />
-              </div>
               <div className="flex items-center gap-1 mb-3">
                 {[1, 2, 3, 4, 5].map((i) => (
                   <Star key={i} className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                 ))}
               </div>
-              <p className="text-foreground text-sm leading-relaxed mb-4" itemProp="reviewBody">
+              <p className="text-foreground text-sm leading-relaxed mb-4">
                 "{t.text}"
               </p>
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full gradient-cyan flex items-center justify-center text-navy text-xs font-bold flex-shrink-0">
                   {t.avatar}
                 </div>
-                <div itemProp="author" itemScope itemType="https://schema.org/Person">
-                  <div className="font-display font-semibold text-foreground text-sm" itemProp="name">{t.name}</div>
+                <div>
+                  <div className="font-display font-semibold text-foreground text-sm">{t.name}</div>
                   <div className="text-muted-foreground text-xs">{t.role}</div>
                 </div>
               </div>
