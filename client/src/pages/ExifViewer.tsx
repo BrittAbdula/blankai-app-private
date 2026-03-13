@@ -308,6 +308,7 @@ export default function ExifViewer() {
   const [isDragging, setIsDragging] = useState(false);
   const [activeGroup, setActiveGroup] = useState<string>("file");
   const [isReady, setIsReady] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -328,6 +329,10 @@ export default function ExifViewer() {
     setLoading(true);
     setError(null);
     setResult(null);
+    // Generate preview URL (works for JPEG/PNG/WebP; HEIC may show blank in browser)
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    const objUrl = URL.createObjectURL(file);
+    setPreviewUrl(objUrl);
     try {
       const data = await extractExif(file);
       // If no metadata found at all (not even file info fields beyond the basics)
@@ -373,6 +378,7 @@ export default function ExifViewer() {
     setResult(null);
     setError(null);
     setLoading(false);
+    if (previewUrl) { URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }
   };
 
   // Export helpers
@@ -577,14 +583,27 @@ export default function ExifViewer() {
               <div className="space-y-6" style={{ animation: "fadeInUp 0.4s ease-out" }}>
                 {/* Top bar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <h2 className="font-display font-bold text-lg text-foreground">
-                      {result.fileName}
-                    </h2>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      {result.width && result.height ? `${result.width} × ${result.height} px · ` : ""}
-                      {(result.fileSize / 1024).toFixed(1)} KB · {result.fileType}
-                    </p>
+                  <div className="flex items-center gap-3">
+                    {/* Thumbnail preview */}
+                    {previewUrl && (
+                      <div className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-border/50 bg-muted/30">
+                        <img
+                          src={previewUrl}
+                          alt={result.fileName}
+                          className="w-full h-full object-cover"
+                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <h2 className="font-display font-bold text-lg text-foreground">
+                        {result.fileName}
+                      </h2>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {result.width && result.height ? `${result.width} × ${result.height} px · ` : ""}
+                        {(result.fileSize / 1024).toFixed(1)} KB · {result.fileType}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <button

@@ -5,9 +5,11 @@
  */
 
 import { useEffect } from "react";
+import { AlertTriangle, Mail, FileText } from "lucide-react";
 import { Link } from "wouter";
-import { EyeOff, ArrowLeft, FileText, AlertTriangle, Mail } from "lucide-react";
 import { usePageMeta } from "@/hooks/usePageMeta";
+import SiteHeader from "@/components/SiteHeader";
+import SiteFooter from "@/components/SiteFooter";
 
 export default function TermsOfService() {
   usePageMeta({
@@ -29,33 +31,7 @@ export default function TermsOfService() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Nav */}
-      <nav className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors text-sm">
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Back</span>
-            </Link>
-            <div className="w-px h-4 bg-border" />
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md bg-cyan/10 border border-cyan/30 flex items-center justify-center">
-                <EyeOff className="w-3.5 h-3.5 text-cyan" />
-              </div>
-              <span className="font-display font-bold text-foreground text-sm">blankAI</span>
-            </Link>
-            <span className="text-muted-foreground text-sm">/</span>
-            <span className="text-foreground text-sm font-medium">Terms of Service</span>
-          </div>
-          <Link
-            href="/"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg gradient-cyan text-navy text-xs font-bold hover:opacity-90 transition-opacity"
-          >
-            <FileText className="w-3 h-3" />
-            Try Free
-          </Link>
-        </div>
-      </nav>
+      <SiteHeader breadcrumb="Terms of Service" />
 
       {/* Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
@@ -229,9 +205,9 @@ export default function TermsOfService() {
 
         {/* Footer nav */}
         <div className="mt-16 pt-8 border-t border-border flex flex-wrap gap-4 text-sm text-muted-foreground">
-          <Link href="/" className="hover:text-foreground transition-colors">← Back to BlankAI</Link>
+          <a href="/" className="hover:text-foreground transition-colors">← Back to BlankAI</a>
           <span className="text-border">·</span>
-          <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+          <a href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</a>
           <span className="text-border">·</span>
           <a href={`mailto:${contactEmail}`} className="flex items-center gap-1 hover:text-cyan transition-colors">
             <Mail className="w-3.5 h-3.5" />
@@ -239,6 +215,7 @@ export default function TermsOfService() {
           </a>
         </div>
       </main>
+      <SiteFooter />
     </div>
   );
 }
