@@ -9,7 +9,9 @@
     "start": "NODE_ENV=production node dist/index.js",
     "preview": "vite preview --host",
     "check": "tsc --noEmit",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "cf:build": "vite build",
+    "cf:deploy": "pnpm run cf:build && wrangler pages deploy dist/public --project-name blankai-app"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
