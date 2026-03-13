@@ -434,11 +434,24 @@ export async function extractExif(file: File): Promise<ExifResult> {
       value: `${Math.abs(gpsLon).toFixed(7)}° ${gpsLon >= 0 ? "E" : "W"}`,
       sensitive: true,
     });
-    // Google Maps link
+    // Map links (geo: for native app, plus Google Maps and Apple Maps)
     gpsFields.push({
       key: "maps_link",
       label: "View on Map",
+      // geo: URI opens native map app on iOS/Android; fallback to Google Maps on desktop
+      value: `geo:${gpsLat.toFixed(7)},${gpsLon.toFixed(7)}`,
+      sensitive: true,
+    });
+    gpsFields.push({
+      key: "maps_link_google",
+      label: "Google Maps",
       value: `https://maps.google.com/?q=${gpsLat.toFixed(7)},${gpsLon.toFixed(7)}`,
+      sensitive: true,
+    });
+    gpsFields.push({
+      key: "maps_link_apple",
+      label: "Apple Maps",
+      value: `https://maps.apple.com/?q=${gpsLat.toFixed(7)},${gpsLon.toFixed(7)}&ll=${gpsLat.toFixed(7)},${gpsLon.toFixed(7)}`,
       sensitive: true,
     });
   }

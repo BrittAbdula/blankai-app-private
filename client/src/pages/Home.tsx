@@ -617,6 +617,21 @@ function UploadZone() {
     return () => clearInterval(interval);
   }, [stage]);
 
+  // Auto-load file passed from EXIF Viewer via window.__blankai_pending_file
+  useEffect(() => {
+    const win = window as unknown as Record<string, unknown>;
+    const pending = win.__blankai_pending_file as File | undefined;
+    if (pending instanceof File) {
+      delete win.__blankai_pending_file;
+      handleFilesSelected([pending]);
+      // Scroll to upload zone
+      setTimeout(() => {
+        document.getElementById("upload")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 300);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const generatePreviews = (selectedFiles: File[]): Promise<string[]> => {
     return new Promise((resolve) => {
       const previews: string[] = new Array(selectedFiles.length).fill("");

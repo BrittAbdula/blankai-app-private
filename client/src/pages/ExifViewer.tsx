@@ -154,6 +154,17 @@ function GroupPanel({ group, isActive }: { group: MetaGroup; isActive: boolean }
                   </div>
                   <div className="flex-1 min-w-0 flex items-start gap-1">
                     {field.key === 'maps_link' ? (
+                      // geo: URI — opens native map app on iOS/Android, falls back to browser
+                      <a
+                        href={field.value}
+                        className="text-xs text-cyan hover:text-cyan/80 underline underline-offset-2 break-all leading-relaxed flex items-center gap-1"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <MapPin className="w-3 h-3 flex-shrink-0" />
+                        Open in Maps App
+                        <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
+                      </a>
+                    ) : (field.key === 'maps_link_google' || field.key === 'maps_link_apple') ? (
                       <a
                         href={field.value}
                         target="_blank"
@@ -161,8 +172,8 @@ function GroupPanel({ group, isActive }: { group: MetaGroup; isActive: boolean }
                         className="text-xs text-cyan hover:text-cyan/80 underline underline-offset-2 break-all leading-relaxed flex items-center gap-1"
                         onClick={e => e.stopPropagation()}
                       >
-                        <MapPin className="w-3 h-3 flex-shrink-0" />
-                        Open in Google Maps
+                        {field.key === 'maps_link_apple' ? '🍎' : '🗺️'}
+                        {field.key === 'maps_link_apple' ? 'Open in Apple Maps' : 'Open in Google Maps'}
                         <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
                       </a>
                     ) : (
@@ -170,7 +181,7 @@ function GroupPanel({ group, isActive }: { group: MetaGroup; isActive: boolean }
                         {field.value}
                       </span>
                     )}
-                    {field.key !== 'maps_link' && <CopyBtn text={field.value} />}
+                    {!['maps_link', 'maps_link_google', 'maps_link_apple'].includes(field.key) && <CopyBtn text={field.value} />}
                   </div>
                 </div>
               ))}
@@ -181,9 +192,8 @@ function GroupPanel({ group, isActive }: { group: MetaGroup; isActive: boolean }
     </div>
   );
 }
-
-// ─── Summary risk card ────────────────────────────────────────────────────────
-function RiskSummary({ result }: { result: ExifResult }) {
+// ─── Summary risk card ────────────────────────────────────────────
+function RiskSummary({ result, onRemove }: { result: ExifResult; onRemove?: () => void }) {
   const totalRisk = result.sensitiveCount + result.aiRelatedCount;
   const level = totalRisk === 0 ? "clean" : totalRisk <= 3 ? "low" : totalRisk <= 8 ? "medium" : "high";
 
@@ -222,13 +232,13 @@ function RiskSummary({ result }: { result: ExifResult }) {
             {result.aiRelatedCount > 0 ? "AI generation metadata" : ""}.
             We recommend removing it before sharing.
           </p>
-          <Link
-            href="/"
+          <button
+            onClick={onRemove}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg gradient-cyan text-navy text-xs font-bold hover:opacity-90 transition-opacity"
           >
             <Zap className="w-3 h-3" />
             Remove All Metadata Free →
-          </Link>
+          </button>
         </div>
       )}
     </div>
@@ -309,7 +319,16 @@ export default function ExifViewer() {
   const [activeGroup, setActiveGroup] = useState<string>("file");
   const [isReady, setIsReady] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [currentFile, setCurrentFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Navigate to home with current file pre-loaded into the metadata remover
+  const goToRemover = useCallback((file: File | null) => {
+    if (!file) { window.location.href = "/"; return; }
+    // Store file in a module-level variable (sessionStorage can't hold File objects)
+    (window as unknown as Record<string, unknown>).__blankai_pending_file = file;
+    window.location.href = "/#upload";
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => setIsReady(true), 60);
@@ -329,6 +348,7 @@ export default function ExifViewer() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setCurrentFile(file);
     // Generate preview URL (works for JPEG/PNG/WebP; HEIC may show blank in browser)
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     const objUrl = URL.createObjectURL(file);
@@ -378,6 +398,7 @@ export default function ExifViewer() {
     setResult(null);
     setError(null);
     setLoading(false);
+    setCurrentFile(null);
     if (previewUrl) { URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }
   };
 
@@ -537,10 +558,15 @@ export default function ExifViewer() {
                   <p className="text-[11px] text-muted-foreground/60 mt-1">
                     🔒 Zero server uploads · 100% private · Runs in your browser
                   </p>
-                  <div className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/20 border border-border/30">
-                    <span className="text-[10px] text-muted-foreground">
-                      📱 <strong className="text-foreground/70">iPhone users:</strong> Upload directly from Photos app. HEIC photos fully supported — GPS, camera model, and all EXIF fields will be extracted.
-                    </span>
+                  <div className="mt-2 px-3 py-2 rounded-lg bg-muted/20 border border-border/30 text-left max-w-sm">
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      📱 <strong className="text-foreground/70">iPhone 用户注意：</strong>请从相册选择照片上传（而非直接拍照）。
+                      iOS 隐私保护机制会在拍照直传时自动删除 GPS 等 EXIF 数据，
+                      从相册选择则保留完整元数据。
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/70 mt-1">
+                      🍎 <strong className="text-foreground/60">iPhone users:</strong> Choose from Photos app (not camera) to preserve GPS &amp; EXIF. iOS strips metadata when using camera directly in browser.
+                    </p>
                   </div>
                 </div>
 
@@ -641,23 +667,38 @@ export default function ExifViewer() {
                       <div className="flex-1 font-mono text-xs text-foreground bg-red-500/10 px-3 py-1.5 rounded-lg">
                         {result.gpsLat.toFixed(6)}, {result.gpsLon.toFixed(6)}
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
+                        {/* geo: opens native map app on mobile */}
+                        <a
+                          href={`geo:${result.gpsLat.toFixed(7)},${result.gpsLon.toFixed(7)}`}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/25 transition-colors"
+                        >
+                          <MapPin className="w-3 h-3" />
+                          Maps App
+                        </a>
+                        <a
+                          href={`https://maps.apple.com/?q=${result.gpsLat.toFixed(7)},${result.gpsLon.toFixed(7)}&ll=${result.gpsLat.toFixed(7)},${result.gpsLon.toFixed(7)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/25 transition-colors"
+                        >
+                          🍎 Apple
+                        </a>
                         <a
                           href={`https://maps.google.com/?q=${result.gpsLat.toFixed(7)},${result.gpsLon.toFixed(7)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/25 transition-colors"
+                          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/25 transition-colors"
                         >
-                          <ExternalLink className="w-3 h-3" />
-                          View on Map
+                          🗺️ Google
                         </a>
-                        <Link
-                          href="/"
+                        <button
+                          onClick={() => goToRemover(currentFile)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg gradient-cyan text-navy text-xs font-bold hover:opacity-90 transition-opacity"
                         >
                           <Zap className="w-3 h-3" />
                           Remove GPS
-                        </Link>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -679,7 +720,7 @@ export default function ExifViewer() {
                 )}
 
                 {/* Risk summary */}
-                <RiskSummary result={result} />
+                <RiskSummary result={result} onRemove={() => goToRemover(currentFile)} />
 
                 {/* Main layout: sidebar + content */}
                 <div className="flex gap-6 items-start">
