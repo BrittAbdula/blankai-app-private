@@ -559,11 +559,6 @@ export default function ExifViewer() {
                     🔒 Zero server uploads · 100% private · Runs in your browser
                   </p>
                   <div className="mt-2 px-3 py-2 rounded-lg bg-muted/20 border border-border/30 text-left max-w-sm">
-                    <p className="text-[10px] text-muted-foreground leading-relaxed">
-                      📱 <strong className="text-foreground/70">iPhone 用户注意：</strong>请从相册选择照片上传（而非直接拍照）。
-                      iOS 隐私保护机制会在拍照直传时自动删除 GPS 等 EXIF 数据，
-                      从相册选择则保留完整元数据。
-                    </p>
                     <p className="text-[10px] text-muted-foreground/70 mt-1">
                       🍎 <strong className="text-foreground/60">iPhone users:</strong> Choose from Photos app (not camera) to preserve GPS &amp; EXIF. iOS strips metadata when using camera directly in browser.
                     </p>

@@ -1098,6 +1098,10 @@ export default function Home() {
       q: "How does the AI pixel metadata removal process work?",
       a: "BlankAI uses a 4-step process: (1) Your image is loaded into browser memory via HTML5 File API — no network transmission. (2) The image is rendered onto an HTML5 Canvas, which automatically strips all EXIF, IPTC, XMP metadata and AI-specific signatures. (3) Our algorithm applies microscopic pixel modifications (±1-2 RGB) to change the digital fingerprint. (4) The image is re-encoded as a fresh JPEG with optimized compression, eliminating all AI traces.",
     },
+    {
+      q: "Why is there no GPS data when I upload photos directly from my iPhone?",
+      a: "By default, iOS and Safari strip GPS and location metadata when you upload photos directly from your Camera Roll to protect your privacy. If you want to retain or verify GPS data before removal, select 'Options' at the top of the iOS photo picker and enable 'Location', or upload the image using the iOS Files app instead.",
+    },
   ];
 
   const comparisonFeatures = [

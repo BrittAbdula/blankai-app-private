@@ -79,6 +79,13 @@ export default function TestimonialsSection() {
               itemScope
               itemType="https://schema.org/Review"
             >
+              <div itemProp="itemReviewed" itemScope itemType="https://schema.org/SoftwareApplication">
+                <meta itemProp="name" content="BlankAI" />
+              </div>
+              <div itemProp="reviewRating" itemScope itemType="https://schema.org/Rating">
+                <meta itemProp="ratingValue" content={String(t.rating)} />
+                <meta itemProp="bestRating" content="5" />
+              </div>
               <div className="flex items-center gap-1 mb-3">
                 {[1, 2, 3, 4, 5].map((i) => (
                   <Star key={i} className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
@@ -91,8 +98,8 @@ export default function TestimonialsSection() {
                 <div className="w-8 h-8 rounded-full gradient-cyan flex items-center justify-center text-navy text-xs font-bold flex-shrink-0">
                   {t.avatar}
                 </div>
-                <div>
-                  <div className="font-display font-semibold text-foreground text-sm" itemProp="author">{t.name}</div>
+                <div itemProp="author" itemScope itemType="https://schema.org/Person">
+                  <div className="font-display font-semibold text-foreground text-sm" itemProp="name">{t.name}</div>
                   <div className="text-muted-foreground text-xs">{t.role}</div>
                 </div>
               </div>
