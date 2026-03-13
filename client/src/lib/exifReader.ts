@@ -239,6 +239,9 @@ export async function extractExif(file: File): Promise<ExifResult> {
   const jfif = r["jfif"] ?? {};
   const icc = r["icc"] ?? {};
   const ihdr = r["ihdr"] ?? {};
+  const ifd0 = r["ifd0"] ?? {};
+  const ifd1 = r["ifd1"] ?? {};
+  const photoshop = r["photoshop"] ?? {};
 
   if (gpsLat == null) {
     // Try raw GPS segment fields
@@ -285,13 +288,22 @@ export async function extractExif(file: File): Promise<ExifResult> {
   ) as number | null;
 
   // ── Helper: get field from multiple sources ───────────────────────────────
+  // Searches: ifd0 (PNG/JPEG TIFF IFD), tiff, exif, xmp, iptc, photoshop, flat
   const get = (...keys: string[]): unknown => {
     for (const k of keys) {
-      const v = tiff[k] ?? exifSeg[k] ?? rawFlat[k];
+      const v = ifd0[k] ?? tiff[k] ?? exifSeg[k] ?? xmp[k] ?? iptc[k] ?? photoshop[k] ?? rawFlat[k];
       if (v != null && v !== "" && v !== "—") return v;
     }
     return undefined;
   };
+
+  // ── Screenshot detection ──────────────────────────────────────────────────
+  const isScreenshot = (
+    ifd0["ImageDescription"] === "Screenshot" ||
+    rawFlat["ImageDescription"] === "Screenshot" ||
+    (exifSeg["UserComment"] === "Screenshot") ||
+    (rawFlat["UserComment"] === "Screenshot")
+  );
 
   // ── Group: File Info ──────────────────────────────────────────────────────
   const fileGroup: MetaGroup = {
@@ -304,8 +316,22 @@ export async function extractExif(file: File): Promise<ExifResult> {
       { key: "fileName", label: "File Name", value: file.name },
       { key: "fileSize", label: "File Size", value: formatFileSize(file.size) },
       { key: "fileType", label: "MIME Type", value: file.type || (isHeic ? "image/heic" : "unknown") },
-      { key: "dimensions", label: "Dimensions", value: width && height ? `${width} × ${height} px` : "—" },
+      {
+        key: "dimensions",
+        label: "Dimensions",
+        value: (() => {
+          // Try multiple sources for width/height
+          const w = width ?? (exifSeg["ExifImageWidth"] as number | null) ?? (rawFlat["ExifImageWidth"] as number | null);
+          const h = height ?? (exifSeg["ExifImageHeight"] as number | null) ?? (rawFlat["ExifImageHeight"] as number | null);
+          return w && h ? `${w} × ${h} px` : "—";
+        })(),
+      },
       { key: "lastModified", label: "Last Modified", value: new Date(file.lastModified).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, " UTC") },
+      ...(isScreenshot ? [{
+        key: "_screenshot_note",
+        label: "Note",
+        value: "This is a screenshot. Screenshots do not contain GPS or camera EXIF data. To see full metadata, upload a photo taken with your camera app.",
+      }] : []),
     ],
   };
 
@@ -662,12 +688,16 @@ export async function extractExif(file: File): Promise<ExifResult> {
   const sensitiveCount = allFields.filter(f => f.sensitive).length;
   const aiRelatedCount = allFields.filter(f => f.aiRelated).length;
 
+  // Final width/height with ExifImageWidth/Height as fallback
+  const finalWidth = width ?? (exifSeg["ExifImageWidth"] as number | null) ?? (rawFlat["ExifImageWidth"] as number | null);
+  const finalHeight = height ?? (exifSeg["ExifImageHeight"] as number | null) ?? (rawFlat["ExifImageHeight"] as number | null);
+
   return {
     fileName: file.name,
     fileSize: file.size,
     fileType: file.type || (isHeic ? "image/heic" : "unknown"),
-    width,
-    height,
+    width: finalWidth,
+    height: finalHeight,
     groups,
     totalFields: allFields.length,
     sensitiveCount,

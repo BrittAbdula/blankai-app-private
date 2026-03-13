@@ -663,6 +663,21 @@ export default function ExifViewer() {
                   </div>
                 )}
 
+                {/* Screenshot warning banner */}
+                {result.groups[0]?.fields.some(f => f.key === "_screenshot_note") && (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 flex gap-3">
+                    <span className="text-amber-400 text-lg flex-shrink-0">📱</span>
+                    <div>
+                      <p className="text-amber-400 font-semibold text-sm mb-1">Screenshot Detected</p>
+                      <p className="text-muted-foreground text-sm leading-relaxed">
+                        This file is a screenshot — screenshots do not contain GPS coordinates, camera model, or lens data.
+                        To view full EXIF metadata, open your iPhone <strong className="text-foreground">Camera app</strong>, take a photo,
+                        then upload that photo (file name will be <code className="text-cyan text-xs bg-cyan/10 px-1 rounded">IMG_xxxx.HEIC</code> or <code className="text-cyan text-xs bg-cyan/10 px-1 rounded">IMG_xxxx.JPG</code>).
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Risk summary */}
                 <RiskSummary result={result} />
 
