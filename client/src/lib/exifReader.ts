@@ -3,7 +3,15 @@
  * Browser-based metadata extraction using exifr library.
  * Supports JPEG, PNG, WebP, HEIC, AVIF, TIFF.
  *
- * Returns structured metadata grouped by category for display.
+ * Key fixes for iPhone/HEIC photos:
+ * - firstChunkSize: 512KB (HEIC metadata can be deep in the file)
+ * - chunkLimit: 20 (allow reading more chunks for large files)
+ * - makerNote: true (Apple MakerNote contains device info)
+ * - userComment: true (some apps write here)
+ * - Dual parse strategy: mergeOutput:false for segments + mergeOutput:true for flat lookup
+ * - GPS: use exifr.gps() as primary source (handles N/S/E/W sign correctly)
+ * - HEIC fallback: if parse fails, try with chunked:false (read entire file)
+ * - DMS-to-decimal manual conversion as last resort
  */
 
 import * as Exifr from "exifr";
@@ -42,6 +50,8 @@ export interface ExifResult {
   hasCameraInfo: boolean;
   hasAIMetadata: boolean;
   rawAll: Record<string, unknown>;
+  gpsLat?: number;
+  gpsLon?: number;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -49,7 +59,11 @@ export interface ExifResult {
 function fmt(val: unknown): string {
   if (val === null || val === undefined) return "—";
   if (typeof val === "boolean") return val ? "Yes" : "No";
-  if (typeof val === "number") return String(val);
+  if (typeof val === "number") {
+    // Avoid scientific notation for small numbers
+    if (Math.abs(val) < 1e-4 && val !== 0) return val.toFixed(8);
+    return String(val);
+  }
   if (typeof val === "string") return val.trim() || "—";
   if (val instanceof Date) return val.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, " UTC");
   if (Array.isArray(val)) {
@@ -60,11 +74,38 @@ function fmt(val: unknown): string {
   return String(val);
 }
 
-function formatGPS(lat?: number, lon?: number): string {
-  if (lat == null || lon == null) return "—";
-  const latDir = lat >= 0 ? "N" : "S";
-  const lonDir = lon >= 0 ? "E" : "W";
-  return `${Math.abs(lat).toFixed(6)}° ${latDir}, ${Math.abs(lon).toFixed(6)}° ${lonDir}`;
+/** Convert DMS array [degrees, minutes, seconds] to decimal degrees */
+function dmsToDecimal(dms: unknown, ref?: string): number | null {
+  if (typeof dms === "number") {
+    // Already decimal — apply sign from ref
+    const sign = (ref === "S" || ref === "W") ? -1 : 1;
+    return dms * sign;
+  }
+  if (Array.isArray(dms) && dms.length >= 3) {
+    const [d, m, s] = dms.map(Number);
+    if (isNaN(d) || isNaN(m) || isNaN(s)) return null;
+    const decimal = d + m / 60 + s / 3600;
+    const sign = (ref === "S" || ref === "W") ? -1 : 1;
+    return decimal * sign;
+  }
+  return null;
+}
+
+/** Format decimal degrees to DMS string */
+function decimalToDMS(decimal: number, isLat: boolean): string {
+  const abs = Math.abs(decimal);
+  const deg = Math.floor(abs);
+  const minFloat = (abs - deg) * 60;
+  const min = Math.floor(minFloat);
+  const sec = ((minFloat - min) * 60).toFixed(2);
+  const dir = isLat
+    ? (decimal >= 0 ? "N" : "S")
+    : (decimal >= 0 ? "E" : "W");
+  return `${deg}° ${min}' ${sec}" ${dir}`;
+}
+
+function formatGPS(lat: number, lon: number): string {
+  return `${decimalToDMS(lat, true)}, ${decimalToDMS(lon, false)}`;
 }
 
 function formatFileSize(bytes: number): string {
@@ -89,49 +130,170 @@ function formatFocalLength(val: unknown): string {
   return `${val}mm`;
 }
 
+function formatISO(val: unknown): string {
+  if (typeof val === "number") return String(val);
+  if (Array.isArray(val) && val.length > 0) return String(val[0]);
+  return fmt(val);
+}
+
+// ─── Parse options ────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ExifrOptions = any;
+
+const PARSE_OPTS_BASE: ExifrOptions = {
+  tiff: true,
+  exif: true,
+  gps: true,
+  iptc: true,
+  xmp: true,
+  icc: true,
+  jfif: true,
+  ihdr: true,
+  ifd0: true,
+  ifd1: true,
+  interop: true,
+  makerNote: true,    // Apple MakerNote (device info)
+  userComment: true,  // User comments
+  translateValues: true,
+  translateKeys: true,
+  reviveValues: true,
+  sanitize: true,
+  // Large chunk size for HEIC/HEIF files (metadata can be far into file)
+  firstChunkSize: 512 * 1024,  // 512 KB
+  chunkSize: 256 * 1024,       // 256 KB
+  chunkLimit: 20,              // Allow up to 20 chunks
+};
+
 // ─── Main extractor ───────────────────────────────────────────────────────────
 
 export async function extractExif(file: File): Promise<ExifResult> {
-  // Full parse — all segments
-  const raw = await Exifr.parse(file, {
-    tiff: true,
-    exif: true,
-    gps: true,
-    iptc: true,
-    xmp: true,
-    icc: true,
-    jfif: true,
-    ihdr: true,
-    translateValues: true,
-    translateKeys: true,
-    reviveValues: true,
-    sanitize: true,
-    mergeOutput: false,
-  }).catch(() => null);
+  const isHeic = file.type === "image/heic" || file.type === "image/heif" ||
+    /\.(heic|heif)$/i.test(file.name);
 
-  const rawFlat = await Exifr.parse(file, {
-    tiff: true, exif: true, gps: true, iptc: true, xmp: true,
-    icc: true, jfif: true, ihdr: true,
-    translateValues: true, translateKeys: true, reviveValues: true,
-    sanitize: true, mergeOutput: true,
-  }).catch(() => ({})) as Record<string, unknown>;
+  // ── Strategy 1: Standard parse with large chunk size ──────────────────────
+  let raw: Record<string, Record<string, unknown>> | null = null;
+  let rawFlat: Record<string, unknown> = {};
 
-  const r = (raw as Record<string, Record<string, unknown>> | null) ?? {};
+  try {
+    raw = await Exifr.parse(file, {
+      ...PARSE_OPTS_BASE,
+      mergeOutput: false,
+    }) as Record<string, Record<string, unknown>> | null;
+  } catch (e) {
+    console.warn("[exifReader] parse (segmented) failed:", e);
+  }
 
-  // Image dimensions
-  const tiff = r["tiff"] ?? {};
-  const ihdr = r["ihdr"] ?? {};
-  const exifSeg = r["exif"] ?? {};
+  // ── Strategy 2: If HEIC or raw is null, try reading entire file ───────────
+  if (!raw && isHeic) {
+    try {
+      raw = await Exifr.parse(file, {
+        ...PARSE_OPTS_BASE,
+        mergeOutput: false,
+        chunked: false,  // Read entire file for HEIC
+      }) as Record<string, Record<string, unknown>> | null;
+    } catch (e) {
+      console.warn("[exifReader] parse (full file) failed:", e);
+    }
+  }
+
+  // ── Flat parse for fallback lookups ───────────────────────────────────────
+  try {
+    rawFlat = await Exifr.parse(file, {
+      ...PARSE_OPTS_BASE,
+      mergeOutput: true,
+      ...(isHeic ? { chunked: false } : {}),
+    }) as Record<string, unknown> ?? {};
+  } catch (e) {
+    console.warn("[exifReader] parse (flat) failed:", e);
+    rawFlat = {};
+  }
+
+  // ── GPS: use exifr.gps() as primary (handles N/S/E/W sign) ───────────────
+  let gpsLat: number | undefined;
+  let gpsLon: number | undefined;
+
+  try {
+    const gpsResult = await Exifr.gps(file);
+    if (gpsResult?.latitude != null && gpsResult?.longitude != null) {
+      gpsLat = gpsResult.latitude;
+      gpsLon = gpsResult.longitude;
+    }
+  } catch (e) {
+    console.warn("[exifReader] gps() failed:", e);
+  }
+
+  // Fallback GPS from flat parse
+  if (gpsLat == null && rawFlat["latitude"] != null) {
+    gpsLat = rawFlat["latitude"] as number;
+    gpsLon = rawFlat["longitude"] as number;
+  }
+
+  // Manual DMS fallback from GPS segment
+  const r = raw ?? {};
   const gps = r["gps"] ?? {};
+  const tiff = r["tiff"] ?? {};
+  const exifSeg = r["exif"] ?? {};
   const iptc = r["iptc"] ?? {};
   const xmp = r["xmp"] ?? {};
   const jfif = r["jfif"] ?? {};
   const icc = r["icc"] ?? {};
+  const ihdr = r["ihdr"] ?? {};
 
-  const width = (tiff["ImageWidth"] ?? ihdr["ImageWidth"] ?? exifSeg["PixelXDimension"] ?? null) as number | null;
-  const height = (tiff["ImageHeight"] ?? ihdr["ImageHeight"] ?? exifSeg["PixelYDimension"] ?? null) as number | null;
+  if (gpsLat == null) {
+    // Try raw GPS segment fields
+    const rawLat = gps["GPSLatitude"] ?? gps["latitude"];
+    const rawLon = gps["GPSLongitude"] ?? gps["longitude"];
+    const latRef = (gps["GPSLatitudeRef"] ?? gps["latitudeRef"] ?? rawFlat["GPSLatitudeRef"]) as string | undefined;
+    const lonRef = (gps["GPSLongitudeRef"] ?? gps["longitudeRef"] ?? rawFlat["GPSLongitudeRef"]) as string | undefined;
 
-  // ── Group: File Info ────────────────────────────────────────────────────────
+    if (rawLat != null) {
+      gpsLat = dmsToDecimal(rawLat, latRef) ?? undefined;
+      gpsLon = dmsToDecimal(rawLon, lonRef) ?? undefined;
+    }
+
+    // Try flat parse GPS fields
+    if (gpsLat == null) {
+      const flatLat = rawFlat["GPSLatitude"];
+      const flatLon = rawFlat["GPSLongitude"];
+      const flatLatRef = rawFlat["GPSLatitudeRef"] as string | undefined;
+      const flatLonRef = rawFlat["GPSLongitudeRef"] as string | undefined;
+      if (flatLat != null) {
+        gpsLat = dmsToDecimal(flatLat, flatLatRef) ?? undefined;
+        gpsLon = dmsToDecimal(flatLon, flatLonRef) ?? undefined;
+      }
+    }
+  }
+
+  // ── Image dimensions ──────────────────────────────────────────────────────
+  const width = (
+    tiff["ImageWidth"] ??
+    ihdr["ImageWidth"] ??
+    exifSeg["PixelXDimension"] ??
+    rawFlat["ImageWidth"] ??
+    rawFlat["PixelXDimension"] ??
+    null
+  ) as number | null;
+
+  const height = (
+    tiff["ImageHeight"] ??
+    ihdr["ImageHeight"] ??
+    exifSeg["PixelYDimension"] ??
+    rawFlat["ImageHeight"] ??
+    rawFlat["PixelYDimension"] ??
+    null
+  ) as number | null;
+
+  // ── Helper: get field from multiple sources ───────────────────────────────
+  const get = (...keys: string[]): unknown => {
+    for (const k of keys) {
+      const v = tiff[k] ?? exifSeg[k] ?? rawFlat[k];
+      if (v != null && v !== "" && v !== "—") return v;
+    }
+    return undefined;
+  };
+
+  // ── Group: File Info ──────────────────────────────────────────────────────
   const fileGroup: MetaGroup = {
     id: "file",
     label: "File Information",
@@ -141,29 +303,31 @@ export async function extractExif(file: File): Promise<ExifResult> {
     fields: [
       { key: "fileName", label: "File Name", value: file.name },
       { key: "fileSize", label: "File Size", value: formatFileSize(file.size) },
-      { key: "fileType", label: "MIME Type", value: file.type || "unknown" },
+      { key: "fileType", label: "MIME Type", value: file.type || (isHeic ? "image/heic" : "unknown") },
       { key: "dimensions", label: "Dimensions", value: width && height ? `${width} × ${height} px` : "—" },
       { key: "lastModified", label: "Last Modified", value: new Date(file.lastModified).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, " UTC") },
     ],
   };
 
-  // ── Group: Camera & Device ──────────────────────────────────────────────────
+  // ── Group: Camera & Device ────────────────────────────────────────────────
   const cameraFields: MetaField[] = [];
-  const camMap: [string, string, boolean?][] = [
-    ["Make", "Camera Make"],
-    ["Model", "Camera Model"],
-    ["LensMake", "Lens Make"],
-    ["LensModel", "Lens Model"],
-    ["Software", "Software"],
-    ["BodySerialNumber", "Body Serial", true],
-    ["LensSerialNumber", "Lens Serial", true],
-    ["CameraOwnerName", "Owner Name", true],
-    ["OwnerName", "Owner Name", true],
+  const camMap: [string[], string, boolean?][] = [
+    [["Make"], "Camera Make"],
+    [["Model"], "Camera Model"],
+    [["LensMake"], "Lens Make"],
+    [["LensModel", "LensInfo"], "Lens Model"],
+    [["Software"], "Software"],
+    [["HostComputer"], "Host Computer"],
+    [["BodySerialNumber", "SerialNumber"], "Body Serial", true],
+    [["LensSerialNumber"], "Lens Serial", true],
+    [["CameraOwnerName", "OwnerName"], "Owner Name", true],
+    [["Artist"], "Artist", true],
+    [["Copyright"], "Copyright"],
   ];
-  for (const [k, label, sensitive] of camMap) {
-    const v = tiff[k] ?? exifSeg[k] ?? rawFlat[k];
-    if (v != null && v !== "") {
-      cameraFields.push({ key: k, label, value: fmt(v), raw: v, sensitive: !!sensitive });
+  for (const [keys, label, sensitive] of camMap) {
+    const v = get(...keys);
+    if (v != null) {
+      cameraFields.push({ key: keys[0], label, value: fmt(v), raw: v, sensitive: !!sensitive });
     }
   }
 
@@ -176,30 +340,34 @@ export async function extractExif(file: File): Promise<ExifResult> {
     fields: cameraFields,
   };
 
-  // ── Group: Exposure Settings ────────────────────────────────────────────────
+  // ── Group: Exposure Settings ──────────────────────────────────────────────
   const exposureFields: MetaField[] = [];
-  const expMap: [string, string, (v: unknown) => string][] = [
-    ["ExposureTime", "Shutter Speed", formatExposure],
-    ["FNumber", "Aperture", formatFStop],
-    ["ISO", "ISO", fmt],
-    ["ISOSpeedRatings", "ISO Speed", fmt],
-    ["FocalLength", "Focal Length", formatFocalLength],
-    ["FocalLengthIn35mmFormat", "Focal (35mm)", formatFocalLength],
-    ["ExposureProgram", "Exposure Program", fmt],
-    ["ExposureMode", "Exposure Mode", fmt],
-    ["ExposureBiasValue", "Exposure Bias", (v) => `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(1)} EV`],
-    ["MeteringMode", "Metering Mode", fmt],
-    ["Flash", "Flash", fmt],
-    ["WhiteBalance", "White Balance", fmt],
-    ["SceneCaptureType", "Scene Type", fmt],
-    ["BrightnessValue", "Brightness", (v) => `${Number(v).toFixed(2)} EV`],
-    ["ShutterSpeedValue", "Shutter (APEX)", fmt],
-    ["ApertureValue", "Aperture (APEX)", fmt],
+  const expMap: [string[], string, (v: unknown) => string][] = [
+    [["ExposureTime", "ShutterSpeedValue"], "Shutter Speed", formatExposure],
+    [["FNumber", "ApertureValue"], "Aperture", formatFStop],
+    [["ISO", "ISOSpeedRatings", "PhotographicSensitivity"], "ISO", formatISO],
+    [["FocalLength"], "Focal Length", formatFocalLength],
+    [["FocalLengthIn35mmFormat", "FocalLengthIn35mmFilm"], "Focal (35mm eq.)", formatFocalLength],
+    [["ExposureProgram"], "Exposure Program", fmt],
+    [["ExposureMode"], "Exposure Mode", fmt],
+    [["ExposureBiasValue"], "Exposure Bias", (v) => `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(1)} EV`],
+    [["MeteringMode"], "Metering Mode", fmt],
+    [["Flash"], "Flash", fmt],
+    [["WhiteBalance"], "White Balance", fmt],
+    [["SceneCaptureType"], "Scene Type", fmt],
+    [["DigitalZoomRatio"], "Digital Zoom", fmt],
+    [["SubjectDistance"], "Subject Distance", (v) => `${Number(v).toFixed(2)} m`],
+    [["BrightnessValue"], "Brightness", (v) => `${Number(v).toFixed(2)} EV`],
+    [["Contrast"], "Contrast", fmt],
+    [["Saturation"], "Saturation", fmt],
+    [["Sharpness"], "Sharpness", fmt],
+    [["ColorSpace"], "Color Space", fmt],
+    [["SensingMethod"], "Sensing Method", fmt],
   ];
-  for (const [k, label, formatter] of expMap) {
-    const v = exifSeg[k] ?? tiff[k] ?? rawFlat[k];
+  for (const [keys, label, formatter] of expMap) {
+    const v = get(...keys);
     if (v != null) {
-      exposureFields.push({ key: k, label, value: formatter(v), raw: v });
+      exposureFields.push({ key: keys[0], label, value: formatter(v), raw: v });
     }
   }
 
@@ -212,29 +380,74 @@ export async function extractExif(file: File): Promise<ExifResult> {
     fields: exposureFields,
   };
 
-  // ── Group: GPS Location ─────────────────────────────────────────────────────
+  // ── Group: GPS Location ───────────────────────────────────────────────────
   const gpsFields: MetaField[] = [];
-  const lat = gps["latitude"] as number | undefined;
-  const lon = gps["longitude"] as number | undefined;
-  const alt = gps["Altitude"] ?? gps["altitude"] as number | undefined;
 
-  if (lat != null && lon != null) {
-    gpsFields.push({ key: "coords", label: "Coordinates", value: formatGPS(lat, lon), sensitive: true });
-    gpsFields.push({ key: "lat", label: "Latitude", value: `${lat.toFixed(8)}°`, sensitive: true });
-    gpsFields.push({ key: "lon", label: "Longitude", value: `${lon.toFixed(8)}°`, sensitive: true });
+  if (gpsLat != null && gpsLon != null) {
+    gpsFields.push({
+      key: "coords_dms",
+      label: "Coordinates (DMS)",
+      value: formatGPS(gpsLat, gpsLon),
+      sensitive: true,
+    });
+    gpsFields.push({
+      key: "coords_decimal",
+      label: "Coordinates (Decimal)",
+      value: `${gpsLat.toFixed(7)}, ${gpsLon.toFixed(7)}`,
+      sensitive: true,
+    });
+    gpsFields.push({
+      key: "lat",
+      label: "Latitude",
+      value: `${Math.abs(gpsLat).toFixed(7)}° ${gpsLat >= 0 ? "N" : "S"}`,
+      sensitive: true,
+    });
+    gpsFields.push({
+      key: "lon",
+      label: "Longitude",
+      value: `${Math.abs(gpsLon).toFixed(7)}° ${gpsLon >= 0 ? "E" : "W"}`,
+      sensitive: true,
+    });
+    // Google Maps link
+    gpsFields.push({
+      key: "maps_link",
+      label: "View on Map",
+      value: `https://maps.google.com/?q=${gpsLat.toFixed(7)},${gpsLon.toFixed(7)}`,
+      sensitive: true,
+    });
   }
-  if (alt != null) {
-    gpsFields.push({ key: "alt", label: "Altitude", value: `${Number(alt).toFixed(1)} m`, sensitive: true });
+
+  // Altitude
+  const altRaw = gps["GPSAltitude"] ?? gps["altitude"] ?? gps["Altitude"] ?? rawFlat["GPSAltitude"];
+  const altRef = (gps["GPSAltitudeRef"] ?? rawFlat["GPSAltitudeRef"]) as number | undefined;
+  if (altRaw != null) {
+    const altVal = typeof altRaw === "number" ? altRaw : Number(altRaw);
+    const sign = altRef === 1 ? -1 : 1;
+    gpsFields.push({
+      key: "alt",
+      label: "Altitude",
+      value: `${(altVal * sign).toFixed(1)} m ${altRef === 1 ? "(below sea level)" : "(above sea level)"}`,
+      sensitive: true,
+    });
   }
-  const gpsExtra: [string, string][] = [
-    ["GPSSpeed", "Speed"], ["GPSSpeedRef", "Speed Unit"],
-    ["GPSImgDirection", "Direction"], ["GPSImgDirectionRef", "Direction Ref"],
-    ["GPSDateStamp", "GPS Date"], ["GPSTimeStamp", "GPS Time"],
-    ["GPSProcessingMethod", "Processing Method"],
+
+  // Extra GPS fields
+  const gpsExtra: [string[], string][] = [
+    [["GPSSpeed", "speed"], "Speed"],
+    [["GPSSpeedRef", "speedRef"], "Speed Unit"],
+    [["GPSImgDirection", "imgDirection"], "Direction"],
+    [["GPSImgDirectionRef", "imgDirectionRef"], "Direction Ref"],
+    [["GPSDateStamp", "dateStamp"], "GPS Date"],
+    [["GPSTimeStamp", "timeStamp"], "GPS Time"],
+    [["GPSProcessingMethod", "processingMethod"], "Processing Method"],
+    [["GPSHPositioningError", "hPositioningError"], "Horizontal Accuracy"],
+    [["GPSSatellites", "satellites"], "Satellites"],
+    [["GPSMeasureMode", "measureMode"], "Measure Mode"],
+    [["GPSDOP", "dop"], "DOP (Accuracy)"],
   ];
-  for (const [k, label] of gpsExtra) {
-    const v = gps[k] ?? rawFlat[k];
-    if (v != null) gpsFields.push({ key: k, label, value: fmt(v), sensitive: true });
+  for (const [keys, label] of gpsExtra) {
+    const v = keys.reduce<unknown>((acc, k) => acc ?? gps[k] ?? rawFlat[k], undefined);
+    if (v != null) gpsFields.push({ key: keys[0], label, value: fmt(v), sensitive: true });
   }
 
   const gpsGroup: MetaGroup = {
@@ -246,21 +459,19 @@ export async function extractExif(file: File): Promise<ExifResult> {
     fields: gpsFields,
   };
 
-  // ── Group: Date & Time ──────────────────────────────────────────────────────
+  // ── Group: Date & Time ────────────────────────────────────────────────────
   const dateFields: MetaField[] = [];
-  const dateMap: [string, string][] = [
-    ["DateTimeOriginal", "Date Taken"],
-    ["DateTimeDigitized", "Date Digitized"],
-    ["DateTime", "Date Modified"],
-    ["CreateDate", "Create Date"],
-    ["ModifyDate", "Modify Date"],
-    ["OffsetTime", "UTC Offset"],
-    ["OffsetTimeOriginal", "UTC Offset (Original)"],
-    ["SubSecTimeOriginal", "Sub-Second"],
+  const dateMap: [string[], string][] = [
+    [["DateTimeOriginal", "CreateDate"], "Date Taken"],
+    [["DateTimeDigitized"], "Date Digitized"],
+    [["DateTime", "ModifyDate"], "Date Modified"],
+    [["OffsetTime", "OffsetTimeOriginal"], "UTC Offset"],
+    [["SubSecTimeOriginal", "SubSecTime"], "Sub-Second"],
+    [["GPSDateStamp"], "GPS Date"],
   ];
-  for (const [k, label] of dateMap) {
-    const v = exifSeg[k] ?? tiff[k] ?? xmp[k] ?? rawFlat[k];
-    if (v != null) dateFields.push({ key: k, label, value: fmt(v) });
+  for (const [keys, label] of dateMap) {
+    const v = get(...keys) ?? keys.reduce<unknown>((acc, k) => acc ?? xmp[k], undefined);
+    if (v != null) dateFields.push({ key: keys[0], label, value: fmt(v) });
   }
 
   const dateGroup: MetaGroup = {
@@ -272,7 +483,7 @@ export async function extractExif(file: File): Promise<ExifResult> {
     fields: dateFields,
   };
 
-  // ── Group: AI & Generation Metadata ────────────────────────────────────────
+  // ── Group: AI & Generation Metadata ──────────────────────────────────────
   const aiFields: MetaField[] = [];
 
   // XMP AI fields (C2PA, Adobe Firefly, Stable Diffusion, Midjourney, etc.)
@@ -288,11 +499,10 @@ export async function extractExif(file: File): Promise<ExifResult> {
     "DalleGenerationId", "dalle_generation_id",
     "FireflyJobId", "firefly_job_id",
     "AdobeCreativeCloud", "adobe_creative_cloud",
-    "photoshop:ICCProfile",
   ];
   for (const k of aiXmpKeys) {
     const v = xmp[k] ?? rawFlat[k];
-    if (v != null) {
+    if (v != null && v !== "") {
       aiFields.push({ key: k, label: k.replace(/([A-Z])/g, " $1").trim(), value: fmt(v), aiRelated: true });
     }
   }
@@ -307,8 +517,8 @@ export async function extractExif(file: File): Promise<ExifResult> {
   }
 
   // Software field — flag AI tools
-  const sw = fmt(tiff["Software"] ?? rawFlat["Software"] ?? "");
-  const aiSoftware = ["midjourney", "stable diffusion", "dall-e", "firefly", "imagen", "runway", "leonardo", "canva ai", "adobe ai"];
+  const sw = fmt(get("Software") ?? "");
+  const aiSoftware = ["midjourney", "stable diffusion", "dall-e", "firefly", "imagen", "runway", "leonardo", "canva ai", "adobe ai", "kling", "sora"];
   if (aiSoftware.some(s => sw.toLowerCase().includes(s))) {
     aiFields.push({ key: "aiSoftware", label: "AI Software Detected", value: sw, aiRelated: true });
   }
@@ -322,27 +532,28 @@ export async function extractExif(file: File): Promise<ExifResult> {
     fields: aiFields,
   };
 
-  // ── Group: IPTC / Copyright ─────────────────────────────────────────────────
+  // ── Group: IPTC / Copyright ───────────────────────────────────────────────
   const iptcFields: MetaField[] = [];
-  const iptcMap: [string, string, boolean?][] = [
-    ["ObjectName", "Title"],
-    ["Caption", "Caption"],
-    ["Headline", "Headline"],
-    ["Keywords", "Keywords"],
-    ["By-line", "Author", true],
-    ["By-lineTitle", "Author Title"],
-    ["Credit", "Credit"],
-    ["Source", "Source"],
-    ["CopyrightNotice", "Copyright"],
-    ["City", "City", true],
-    ["Province-State", "State", true],
-    ["Country-PrimaryLocationName", "Country", true],
-    ["SpecialInstructions", "Instructions"],
-    ["Category", "Category"],
+  const iptcMap: [string[], string, boolean?][] = [
+    [["ObjectName"], "Title"],
+    [["Caption", "LocalCaption"], "Caption"],
+    [["Headline"], "Headline"],
+    [["Keywords"], "Keywords"],
+    [["Byline", "By-line"], "Author", true],
+    [["BylineTitle", "By-lineTitle"], "Author Title"],
+    [["Credit"], "Credit"],
+    [["Source"], "Source"],
+    [["CopyrightNotice"], "Copyright"],
+    [["City"], "City", true],
+    [["State", "Province-State"], "State", true],
+    [["Country", "Country-PrimaryLocationName"], "Country", true],
+    [["SpecialInstructions"], "Instructions"],
+    [["Category"], "Category"],
+    [["Writer"], "Caption Writer"],
   ];
-  for (const [k, label, sensitive] of iptcMap) {
-    const v = iptc[k] ?? rawFlat[k];
-    if (v != null) iptcFields.push({ key: k, label, value: fmt(v), sensitive: !!sensitive });
+  for (const [keys, label, sensitive] of iptcMap) {
+    const v = keys.reduce<unknown>((acc, k) => acc ?? iptc[k] ?? rawFlat[k], undefined);
+    if (v != null) iptcFields.push({ key: keys[0], label, value: fmt(v), sensitive: !!sensitive });
   }
 
   const iptcGroup: MetaGroup = {
@@ -354,7 +565,7 @@ export async function extractExif(file: File): Promise<ExifResult> {
     fields: iptcFields,
   };
 
-  // ── Group: XMP / Adobe ──────────────────────────────────────────────────────
+  // ── Group: XMP / Adobe ────────────────────────────────────────────────────
   const xmpFields: MetaField[] = [];
   const skipXmpKeys = new Set([...aiXmpKeys, ...sdKeys]);
   for (const [k, v] of Object.entries(xmp)) {
@@ -373,25 +584,25 @@ export async function extractExif(file: File): Promise<ExifResult> {
     fields: xmpFields,
   };
 
-  // ── Group: Color Profile ────────────────────────────────────────────────────
+  // ── Group: Color & Technical ──────────────────────────────────────────────
   const colorFields: MetaField[] = [];
-  const colorMap: [string, string][] = [
-    ["ColorSpace", "Color Space"],
-    ["ColorComponents", "Color Components"],
-    ["YCbCrPositioning", "YCbCr Positioning"],
-    ["BitsPerSample", "Bits Per Sample"],
-    ["Compression", "Compression"],
-    ["PhotometricInterpretation", "Photometric Interpretation"],
-    ["Orientation", "Orientation"],
-    ["ResolutionUnit", "Resolution Unit"],
-    ["XResolution", "X Resolution"],
-    ["YResolution", "Y Resolution"],
-    ["SamplesPerPixel", "Samples Per Pixel"],
-    ["PlanarConfiguration", "Planar Config"],
+  const colorMap: [string[], string][] = [
+    [["ColorSpace"], "Color Space"],
+    [["BitsPerSample"], "Bits Per Sample"],
+    [["Compression"], "Compression"],
+    [["PhotometricInterpretation"], "Photometric Interp."],
+    [["Orientation"], "Orientation"],
+    [["ResolutionUnit"], "Resolution Unit"],
+    [["XResolution"], "X Resolution"],
+    [["YResolution"], "Y Resolution"],
+    [["YCbCrPositioning"], "YCbCr Positioning"],
+    [["SamplesPerPixel"], "Samples Per Pixel"],
+    [["PlanarConfiguration"], "Planar Config"],
+    [["ComponentsConfiguration"], "Components Config"],
   ];
-  for (const [k, label] of colorMap) {
-    const v = tiff[k] ?? exifSeg[k] ?? jfif[k] ?? rawFlat[k];
-    if (v != null) colorFields.push({ key: k, label, value: fmt(v) });
+  for (const [keys, label] of colorMap) {
+    const v = get(...keys);
+    if (v != null) colorFields.push({ key: keys[0], label, value: fmt(v) });
   }
   // ICC profile
   if (icc && typeof icc === "object") {
@@ -399,6 +610,7 @@ export async function extractExif(file: File): Promise<ExifResult> {
     if (iccObj["ProfileDescription"]) colorFields.push({ key: "iccProfile", label: "ICC Profile", value: fmt(iccObj["ProfileDescription"]) });
     if (iccObj["ColorSpaceData"]) colorFields.push({ key: "iccColorSpace", label: "ICC Color Space", value: fmt(iccObj["ColorSpaceData"]) });
     if (iccObj["DeviceManufacturer"]) colorFields.push({ key: "iccMfr", label: "Device Manufacturer", value: fmt(iccObj["DeviceManufacturer"]) });
+    if (iccObj["RenderingIntent"]) colorFields.push({ key: "iccIntent", label: "Rendering Intent", value: fmt(iccObj["RenderingIntent"]) });
   }
 
   const colorGroup: MetaGroup = {
@@ -410,17 +622,17 @@ export async function extractExif(file: File): Promise<ExifResult> {
     fields: colorFields,
   };
 
-  // ── Group: Thumbnail ────────────────────────────────────────────────────────
+  // ── Group: Thumbnail ──────────────────────────────────────────────────────
   const thumbFields: MetaField[] = [];
-  const thumbMap: [string, string][] = [
-    ["ThumbnailWidth", "Thumbnail Width"],
-    ["ThumbnailHeight", "Thumbnail Height"],
-    ["ThumbnailLength", "Thumbnail Size"],
-    ["ThumbnailOffset", "Thumbnail Offset"],
+  const thumbMap: [string[], string][] = [
+    [["ThumbnailWidth"], "Thumbnail Width"],
+    [["ThumbnailHeight"], "Thumbnail Height"],
+    [["ThumbnailLength"], "Thumbnail Size"],
+    [["ThumbnailOffset"], "Thumbnail Offset"],
   ];
-  for (const [k, label] of thumbMap) {
-    const v = rawFlat[k];
-    if (v != null) thumbFields.push({ key: k, label, value: fmt(v) });
+  for (const [keys, label] of thumbMap) {
+    const v = rawFlat[keys[0]];
+    if (v != null) thumbFields.push({ key: keys[0], label, value: fmt(v) });
   }
 
   const thumbGroup: MetaGroup = {
@@ -432,7 +644,7 @@ export async function extractExif(file: File): Promise<ExifResult> {
     fields: thumbFields,
   };
 
-  // ── Assemble ────────────────────────────────────────────────────────────────
+  // ── Assemble ──────────────────────────────────────────────────────────────
   const groups = [
     fileGroup,
     aiGroup,
@@ -453,7 +665,7 @@ export async function extractExif(file: File): Promise<ExifResult> {
   return {
     fileName: file.name,
     fileSize: file.size,
-    fileType: file.type,
+    fileType: file.type || (isHeic ? "image/heic" : "unknown"),
     width,
     height,
     groups,
@@ -464,5 +676,7 @@ export async function extractExif(file: File): Promise<ExifResult> {
     hasCameraInfo: cameraGroup.fields.length > 0,
     hasAIMetadata: aiGroup.fields.length > 0,
     rawAll: rawFlat ?? {},
+    gpsLat,
+    gpsLon,
   };
 }

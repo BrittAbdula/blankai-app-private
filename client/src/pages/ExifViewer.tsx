@@ -153,10 +153,24 @@ function GroupPanel({ group, isActive }: { group: MetaGroup; isActive: boolean }
                     </span>
                   </div>
                   <div className="flex-1 min-w-0 flex items-start gap-1">
-                    <span className="text-xs text-foreground break-all leading-relaxed font-mono-custom">
-                      {field.value}
-                    </span>
-                    <CopyBtn text={field.value} />
+                    {field.key === 'maps_link' ? (
+                      <a
+                        href={field.value}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-cyan hover:text-cyan/80 underline underline-offset-2 break-all leading-relaxed flex items-center gap-1"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <MapPin className="w-3 h-3 flex-shrink-0" />
+                        Open in Google Maps
+                        <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
+                      </a>
+                    ) : (
+                      <span className="text-xs text-foreground break-all leading-relaxed font-mono-custom">
+                        {field.value}
+                      </span>
+                    )}
+                    {field.key !== 'maps_link' && <CopyBtn text={field.value} />}
                   </div>
                 </div>
               ))}
@@ -302,7 +316,12 @@ export default function ExifViewer() {
   }, []);
 
   const processFile = useCallback(async (file: File) => {
-    if (!file.type.startsWith("image/") && !file.name.match(/\.(heic|heif|tiff?|dng|cr2|nef|arw)$/i)) {
+    const isHeic = file.type === "image/heic" || file.type === "image/heif" ||
+      /\.(heic|heif)$/i.test(file.name);
+    const isRaw = /\.(dng|cr2|nef|arw|orf|rw2|pef|srw)$/i.test(file.name);
+
+    if (!file.type.startsWith("image/") && !isHeic && !isRaw &&
+        !file.name.match(/\.(tiff?|bmp|webp|avif)$/i)) {
       setError("Please upload an image file (JPEG, PNG, WebP, HEIC, TIFF, RAW).");
       return;
     }
@@ -311,11 +330,27 @@ export default function ExifViewer() {
     setResult(null);
     try {
       const data = await extractExif(file);
+      // If no metadata found at all (not even file info fields beyond the basics)
+      if (data.totalFields <= 5 && !data.hasGPS && !data.hasCameraInfo) {
+        // Still show result, but with a note
+        data.groups[0]?.fields.push({
+          key: "_note",
+          label: "Note",
+          value: isHeic
+            ? "HEIC file parsed. Some metadata may require iOS to embed EXIF — try sharing the photo via AirDrop or email first."
+            : "Limited metadata found. This image may have been previously cleaned, or metadata may be in a non-standard location.",
+        });
+      }
       setResult(data);
-      setActiveGroup(data.groups[0]?.id ?? "file");
+      // Auto-scroll to GPS group if it has data
+      const firstGroup = data.hasGPS ? "gps" : (data.hasCameraInfo ? "camera" : data.groups[0]?.id ?? "file");
+      setActiveGroup(firstGroup);
     } catch (e) {
       console.error(e);
-      setError("Could not read metadata from this file. It may have no EXIF data or be an unsupported format.");
+      setError(isHeic
+        ? "Could not read HEIC metadata. Try converting to JPEG first, or ensure the photo was taken with location services enabled."
+        : "Could not read metadata from this file. It may have no EXIF data or be an unsupported format."
+      );
     } finally {
       setLoading(false);
     }
@@ -496,6 +531,11 @@ export default function ExifViewer() {
                   <p className="text-[11px] text-muted-foreground/60 mt-1">
                     🔒 Zero server uploads · 100% private · Runs in your browser
                   </p>
+                  <div className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/20 border border-border/30">
+                    <span className="text-[10px] text-muted-foreground">
+                      📱 <strong className="text-foreground/70">iPhone users:</strong> Upload directly from Photos app. HEIC photos fully supported — GPS, camera model, and all EXIF fields will be extracted.
+                    </span>
+                  </div>
                 </div>
 
                 {error && (
@@ -517,6 +557,7 @@ export default function ExifViewer() {
                   <div>
                     <p className="text-lg font-semibold text-foreground mb-1">Reading metadata…</p>
                     <p className="text-sm text-muted-foreground">Parsing EXIF, GPS, XMP, IPTC, C2PA segments</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">HEIC/large files may take a few seconds</p>
                   </div>
                   <div className="flex gap-1.5 mt-2">
                     {[0, 1, 2].map(i => (
@@ -569,6 +610,39 @@ export default function ExifViewer() {
                     </button>
                   </div>
                 </div>
+
+                {/* GPS location banner — shown when GPS data found */}
+                {result.hasGPS && result.gpsLat != null && result.gpsLon != null && (
+                  <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="flex items-center gap-2 text-red-400">
+                        <MapPin className="w-5 h-5 flex-shrink-0" />
+                        <span className="font-bold text-sm">GPS Location Detected</span>
+                      </div>
+                      <div className="flex-1 font-mono text-xs text-foreground bg-red-500/10 px-3 py-1.5 rounded-lg">
+                        {result.gpsLat.toFixed(6)}, {result.gpsLon.toFixed(6)}
+                      </div>
+                      <div className="flex gap-2">
+                        <a
+                          href={`https://maps.google.com/?q=${result.gpsLat.toFixed(7)},${result.gpsLon.toFixed(7)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/25 transition-colors"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          View on Map
+                        </a>
+                        <Link
+                          href="/"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg gradient-cyan text-navy text-xs font-bold hover:opacity-90 transition-opacity"
+                        >
+                          <Zap className="w-3 h-3" />
+                          Remove GPS
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Risk summary */}
                 <RiskSummary result={result} />
