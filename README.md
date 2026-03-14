@@ -1,13 +1,11 @@
 # BlankAI
 
-BlankAI is an open-source image metadata cleaner focused on privacy-first, browser-only processing.
+BlankAI is an image metadata cleaner focused on privacy-first, browser-only processing.
 
 - No uploads
 - No server-side image processing
 - Canvas redraw pipeline that strips embedded metadata by creating a fresh image
 - Cloudflare Pages friendly deployment
-
-Repository: [BrittAbdula/blankai-app](https://github.com/BrittAbdula/blankai-app)
 
 ## Features
 
@@ -108,11 +106,5 @@ vite.config.ts         Main Vite config
 - `/blog` blog index
 - `/privacy` privacy policy
 - `/terms` terms of service
-
-## Open Source
-
-BlankAI is distributed under the MIT license. If you want to self-host, fork, or contribute, start with the GitHub repository:
-
-[https://github.com/BrittAbdula/blankai-app](https://github.com/BrittAbdula/blankai-app)
 
 The extension build has its own notes in [`extension/README.md`](./extension/README.md).

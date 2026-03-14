@@ -4,9 +4,7 @@
  */
 
 import { Link } from "wouter";
-import { EyeOff, Mail, Shield, Github, Twitter } from "lucide-react";
-
-const repoUrl = "https://github.com/BrittAbdula/blankai-app";
+import { EyeOff, Mail, Shield, Twitter } from "lucide-react";
 
 export default function SiteFooter() {
   return (
@@ -30,15 +28,6 @@ export default function SiteFooter() {
               The most advanced free AI metadata remover. 100% browser-based,
               zero server uploads.
             </p>
-            <a
-              href={repoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 mt-3 text-xs text-cyan/80 hover:text-cyan transition-colors"
-            >
-              <Github className="w-3.5 h-3.5" />
-              Open source on GitHub
-            </a>
             <div className="flex items-center gap-3 mt-4">
               <a
                 href="https://twitter.com/blankaiapp"
@@ -250,15 +239,7 @@ export default function SiteFooter() {
             </Link>
             .
           </p>
-          <div className="flex items-center gap-3">
-            <a
-              href={repoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              MIT licensed
-            </a>
+          <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
             <span className="text-xs text-muted-foreground font-mono-custom">
               100% client-side · zero uploads

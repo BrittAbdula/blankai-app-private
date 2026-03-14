@@ -36,7 +36,6 @@ import {
   Star,
   ArrowRight,
   Check,
-  Github,
   HardDrive,
   Zap as ZapIcon,
   Target,
@@ -50,8 +49,6 @@ import {
   formatCount,
   type ProcessedImageResult,
 } from "@/lib/imageProcessor";
-
-const repoUrl = "https://github.com/BrittAbdula/blankai-app";
 
 // ─── Intersection Observer Hook ───────────────────────────────────────────────
 function useInView(threshold = 0.1) {
@@ -1534,17 +1531,6 @@ export default function Home() {
                   <ArrowRight className="w-4 h-4" />
                 </a>
               </div>
-
-              <a
-                href={repoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Github className="w-4 h-4 text-cyan" />
-                <span>Open source on GitHub</span>
-                <span className="text-cyan/70">MIT licensed</span>
-              </a>
             </div>
 
             {/* Right side: mini upload preview on desktop */}

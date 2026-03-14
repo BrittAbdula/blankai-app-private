@@ -8,7 +8,7 @@
 
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { EyeOff, Zap, Menu, X, ChevronRight, Github } from "lucide-react";
+import { EyeOff, Zap, Menu, X, ChevronRight } from "lucide-react";
 
 interface NavLink {
   label: string;
@@ -36,8 +36,6 @@ const toolLinks: NavLink[] = [
   { label: "EXIF Viewer", href: "/exif-viewer", highlight: true },
   { label: "Blog", href: "/blog" },
 ];
-
-const repoUrl = "https://github.com/BrittAbdula/blankai-app";
 
 export default function SiteHeader({
   showAnchorLinks = false,
@@ -180,17 +178,6 @@ export default function SiteHeader({
 
           {/* Right side: CTA + hamburger */}
           <div className="flex items-center gap-2">
-            <a
-              href={repoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-lg border border-cyan/20 bg-cyan/5 text-cyan/80 hover:text-cyan hover:border-cyan/40 hover:bg-cyan/10 transition-all"
-              aria-label="View BlankAI on GitHub"
-            >
-              <Github className="w-4 h-4" />
-              <span className="text-sm font-medium">Open Source</span>
-            </a>
-
             {/* CTA */}
             {isHome ? (
               <a
@@ -389,18 +376,6 @@ export default function SiteHeader({
 
           {/* Legal */}
           <div className="pt-2 border-t border-border/50">
-            <a
-              href={repoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all mb-2"
-            >
-              <div className="flex items-center gap-2">
-                <Github className="w-4 h-4 text-cyan/70" />
-                Open source on GitHub
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 opacity-40" />
-            </a>
             <div className="flex gap-4 px-3 text-xs text-muted-foreground">
               <Link
                 href="/privacy"
