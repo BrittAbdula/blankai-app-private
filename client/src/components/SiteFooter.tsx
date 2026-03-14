@@ -4,7 +4,9 @@
  */
 
 import { Link } from "wouter";
-import { EyeOff, Mail, Shield, Twitter } from "lucide-react";
+import { EyeOff, Mail, Shield, Github, Twitter } from "lucide-react";
+
+const repoUrl = "https://github.com/BrittAbdula/blankai-app-private.git";
 
 export default function SiteFooter() {
   return (
@@ -28,7 +30,25 @@ export default function SiteFooter() {
               The most advanced free AI metadata remover. 100% browser-based,
               zero server uploads.
             </p>
+            <a
+              href={repoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 mt-3 text-xs text-cyan/80 hover:text-cyan transition-colors"
+            >
+              <Github className="w-3.5 h-3.5" />
+              GitHub repository
+            </a>
             <div className="flex items-center gap-3 mt-4">
+              <a
+                href={repoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-cyan hover:border-cyan/30 transition-all"
+                aria-label="BlankAI repository on GitHub"
+              >
+                <Github className="w-3.5 h-3.5" />
+              </a>
               <a
                 href="https://twitter.com/blankaiapp"
                 target="_blank"
@@ -239,7 +259,16 @@ export default function SiteFooter() {
             </Link>
             .
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <a
+              href={repoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Github className="w-3.5 h-3.5" />
+              Private repo
+            </a>
             <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
             <span className="text-xs text-muted-foreground font-mono-custom">
               100% client-side · zero uploads
