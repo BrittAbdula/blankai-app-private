@@ -113,6 +113,4 @@ vite.config.ts         Main Vite config
 
 This release is available as an open-source GitHub repository at the link above.
 
-Newer internal iterations may continue in a private repository.
-
 The extension build has its own notes in [`extension/README.md`](./extension/README.md).
