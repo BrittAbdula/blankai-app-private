@@ -51,7 +51,7 @@ import {
   type ProcessedImageResult,
 } from "@/lib/imageProcessor";
 
-const repoUrl = "https://github.com/BrittAbdula/blankai-app-private.git";
+const repoUrl = "https://github.com/BrittAbdula/blankai-app";
 
 // ─── Intersection Observer Hook ───────────────────────────────────────────────
 function useInView(threshold = 0.1) {
@@ -1542,8 +1542,8 @@ export default function Home() {
                 className="inline-flex items-center gap-2 mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 <Github className="w-4 h-4 text-cyan" />
-                <span>GitHub repository</span>
-                <span className="text-cyan/70">Private</span>
+                <span>Open source on GitHub</span>
+                <span className="text-cyan/70">MIT licensed</span>
               </a>
             </div>
 

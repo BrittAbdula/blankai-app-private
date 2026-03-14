@@ -37,7 +37,7 @@ const toolLinks: NavLink[] = [
   { label: "Blog", href: "/blog" },
 ];
 
-const repoUrl = "https://github.com/BrittAbdula/blankai-app-private.git";
+const repoUrl = "https://github.com/BrittAbdula/blankai-app";
 
 export default function SiteHeader({
   showAnchorLinks = false,
@@ -185,10 +185,10 @@ export default function SiteHeader({
               target="_blank"
               rel="noopener noreferrer"
               className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-lg border border-cyan/20 bg-cyan/5 text-cyan/80 hover:text-cyan hover:border-cyan/40 hover:bg-cyan/10 transition-all"
-              aria-label="View BlankAI repository on GitHub"
+              aria-label="View BlankAI on GitHub"
             >
               <Github className="w-4 h-4" />
-              <span className="text-sm font-medium">GitHub Repo</span>
+              <span className="text-sm font-medium">Open Source</span>
             </a>
 
             {/* CTA */}
@@ -397,7 +397,7 @@ export default function SiteHeader({
             >
               <div className="flex items-center gap-2">
                 <Github className="w-4 h-4 text-cyan/70" />
-                GitHub repository
+                Open source on GitHub
               </div>
               <ChevronRight className="w-3.5 h-3.5 opacity-40" />
             </a>

@@ -7,7 +7,7 @@ BlankAI is an image metadata cleaner focused on privacy-first, browser-only proc
 - Canvas redraw pipeline that strips embedded metadata by creating a fresh image
 - Cloudflare Pages friendly deployment
 
-Repository: [BrittAbdula/blankai-app-private](https://github.com/BrittAbdula/blankai-app-private.git)
+Repository: [BrittAbdula/blankai-app](https://github.com/BrittAbdula/blankai-app)
 
 ## Features
 
@@ -111,6 +111,8 @@ vite.config.ts         Main Vite config
 
 ## Repository
 
-The active codebase now lives in the private GitHub repository linked above.
+This release is available as an open-source GitHub repository at the link above.
+
+Newer internal iterations may continue in a private repository.
 
 The extension build has its own notes in [`extension/README.md`](./extension/README.md).

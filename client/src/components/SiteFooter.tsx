@@ -6,7 +6,7 @@
 import { Link } from "wouter";
 import { EyeOff, Mail, Shield, Github, Twitter } from "lucide-react";
 
-const repoUrl = "https://github.com/BrittAbdula/blankai-app-private.git";
+const repoUrl = "https://github.com/BrittAbdula/blankai-app";
 
 export default function SiteFooter() {
   return (
@@ -37,7 +37,7 @@ export default function SiteFooter() {
               className="inline-flex items-center gap-1.5 mt-3 text-xs text-cyan/80 hover:text-cyan transition-colors"
             >
               <Github className="w-3.5 h-3.5" />
-              GitHub repository
+              Open source on GitHub
             </a>
             <div className="flex items-center gap-3 mt-4">
               <a
@@ -45,7 +45,7 @@ export default function SiteFooter() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-cyan hover:border-cyan/30 transition-all"
-                aria-label="BlankAI repository on GitHub"
+                aria-label="BlankAI on GitHub"
               >
                 <Github className="w-3.5 h-3.5" />
               </a>
@@ -267,7 +267,7 @@ export default function SiteFooter() {
               className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               <Github className="w-3.5 h-3.5" />
-              Private repo
+              MIT licensed
             </a>
             <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
             <span className="text-xs text-muted-foreground font-mono-custom">
