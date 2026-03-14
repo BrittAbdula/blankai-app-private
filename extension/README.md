@@ -11,4 +11,7 @@ pnpm run build
 pnpm run check
 ```
 
-After `pnpm run build`, load `/Users/tm/Desktop/blankAI/extension/dist` as an unpacked extension.
+After `pnpm run build`, you can load either of these as an unpacked extension:
+
+- `/Users/tm/Desktop/blankAI/extension`
+- `/Users/tm/Desktop/blankAI/extension/dist`

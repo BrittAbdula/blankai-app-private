@@ -21,8 +21,6 @@ export default defineConfig({
         manualChunks(id) {
           if (id.includes("node_modules/heic2any")) return "heic";
           if (id.includes("node_modules/exifr")) return "exifr";
-          if (id.includes("node_modules/react")) return "react-vendor";
-          if (id.includes("node_modules")) return "vendor";
           return undefined;
         },
       },
