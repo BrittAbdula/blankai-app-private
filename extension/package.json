@@ -1,0 +1,12 @@
+{
+  "name": "blankai-extension",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "../node_modules/.bin/vite",
+    "build": "../node_modules/.bin/vite build",
+    "preview": "../node_modules/.bin/vite preview --host",
+    "check": "../node_modules/.bin/tsc --noEmit -p tsconfig.json"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "module": "ESNext",
+    "strict": true,
+    "lib": ["esnext", "dom", "dom.iterable"],
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "types": ["node", "vite/client"],
+    "paths": {
+      "@extension/*": ["./src/*"],
+      "@blankai-core/*": ["../client/src/*"]
+    }
+  },
+  "include": ["./src/**/*", "./vite.config.ts", "../client/src/lib/imageProcessor.ts", "../client/src/lib/exifReader.ts"],
+  "exclude": ["node_modules", "dist"]
+}
