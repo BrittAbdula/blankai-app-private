@@ -94,8 +94,8 @@ function buildAppleMapsUrl(lat: number, lon: number) {
   return `https://maps.apple.com/?q=${coord}&ll=${coord}`;
 }
 
-const HERO_SAMPLE_PATH = "/test.HEIC";
-const HERO_SAMPLE_PREVIEW_PATH = "/test.jpg";
+const HERO_SAMPLE_PATH = "/sample.HEIC";
+const HERO_SAMPLE_PREVIEW_PATH = "/sample.jpg";
 
 // ─── Metadata group panel ─────────────────────────────────────────────────────
 function GroupPanel({ group, isActive }: { group: MetaGroup; isActive: boolean }) {
@@ -817,7 +817,7 @@ export default function ExifViewer() {
                       Sample Test Image
                     </p>
                     <p className="font-display text-lg font-bold text-foreground mt-1">
-                      Try <code className="rounded bg-cyan/10 px-1.5 py-0.5 text-cyan text-sm">test.HEIC</code>
+                      Try <code className="rounded bg-cyan/10 px-1.5 py-0.5 text-cyan text-sm">sample.HEIC</code>
                     </p>
                   </div>
                   <span className="rounded-full border border-cyan/20 bg-cyan/10 px-2.5 py-1 text-[10px] font-semibold text-cyan">

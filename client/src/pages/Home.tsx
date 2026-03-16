@@ -63,8 +63,8 @@ import {
 } from "@/lib/pendingImageRoute";
 
 const repoUrl = "https://github.com/BrittAbdula/blankai-app";
-const HOME_SAMPLE_PATH = "/test.HEIC";
-const HOME_SAMPLE_PREVIEW_PATH = "/test.jpg";
+const HOME_SAMPLE_PATH = "/sample.HEIC";
+const HOME_SAMPLE_PREVIEW_PATH = "/sample.jpg";
 const HOME_PENDING_UPLOAD_EVENT = "blankai-home-pending-upload";
 const HOME_UPLOAD_HASH = "#upload";
 
@@ -1710,7 +1710,7 @@ export default function Home() {
                       Sample Test File
                     </p>
                     <p className="font-display text-lg font-bold text-foreground mt-1">
-                      Try <code className="rounded bg-cyan/10 px-1.5 py-0.5 text-cyan text-sm">test.HEIC</code>
+                      Try <code className="rounded bg-cyan/10 px-1.5 py-0.5 text-cyan text-sm">sample.HEIC</code>
                     </p>
                   </div>
                   <span className="rounded-full border border-cyan/20 bg-cyan/10 px-2.5 py-1 text-[10px] font-semibold text-cyan">
