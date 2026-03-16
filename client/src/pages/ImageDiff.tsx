@@ -18,9 +18,11 @@ import {
   Flame, ChevronDown, ChevronUp, CheckCircle2, Shield,
   Hash, HardDrive, Zap, Info, X, ArrowRight
 } from "lucide-react";
+import ImagePreview from "@/components/ImagePreview";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import { usePageMeta } from "@/hooks/usePageMeta";
+import { createImagePreviewDataUrl, isPreviewableImageFile } from "@/lib/imagePreview";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ViewMode = "sidebyside" | "overlay" | "slider" | "heatmap";
@@ -28,6 +30,7 @@ type ViewMode = "sidebyside" | "overlay" | "slider" | "heatmap";
 interface ImageSlot {
   file: File | null;
   dataUrl: string | null;
+  isPreparing: boolean;
   label: string;
   hash: string | null;
   size: number | null;
@@ -167,13 +170,20 @@ function UploadSlot({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith("image/")) onFile(file);
+    if (file && isPreviewableImageFile(file)) onFile(file);
   };
 
   if (slot.dataUrl) {
     return (
       <div className="relative rounded-xl overflow-hidden border border-border bg-card group" style={{ minHeight: 200 }}>
-        <img src={slot.dataUrl} alt={label} className="w-full h-full object-contain max-h-72" />
+        <ImagePreview
+          src={slot.dataUrl}
+          alt={label}
+          file={slot.file}
+          className="w-full h-full max-h-72"
+          imgClassName="object-contain"
+          fallbackLabel="No preview"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-3">
           <div className="flex items-center justify-between">
             <div>
@@ -198,6 +208,52 @@ function UploadSlot({
     );
   }
 
+  if (slot.isPreparing) {
+    const isHeic =
+      slot.file?.type === "image/heic" ||
+      slot.file?.type === "image/heif" ||
+      Boolean(slot.file?.name.match(/\.(heic|heif)$/i));
+
+    return (
+      <div
+        className="relative overflow-hidden rounded-xl border border-cyan/30 bg-card/80 p-8"
+        style={{ minHeight: 200 }}
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(0,212,255,0.14),transparent_48%)]" />
+        <div className="relative flex h-full flex-col items-center justify-center gap-4 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan/25 bg-cyan/10">
+            <div
+              className="h-6 w-6 rounded-full border-2 border-cyan border-t-transparent"
+              style={{ animation: "spin 0.8s linear infinite" }}
+            />
+          </div>
+          <div>
+            <p className="font-semibold text-foreground">
+              {isHeic ? "Preparing HEIC preview…" : "Preparing image preview…"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {slot.file?.name ?? "Selected image"}
+            </p>
+            <p className="mt-2 text-[11px] text-muted-foreground/70">
+              {isHeic
+                ? "Converting HEIC so comparison stays responsive."
+                : "Loading preview and computing dimensions."}
+            </p>
+          </div>
+          <div className="flex gap-1.5">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="h-2.5 w-2.5 rounded-full bg-cyan/90 animate-bounce"
+                style={{ animationDelay: `${i * 0.12}s` }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="rounded-xl border-2 border-dashed border-border hover:border-cyan/40 bg-card/50 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all duration-200 hover:bg-muted/10 p-8"
@@ -211,7 +267,7 @@ function UploadSlot({
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif,.heic,.heif"
         className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }}
       />
@@ -348,7 +404,7 @@ export default function ImageDiff() {
   const [, navigate] = useLocation();
 
   const emptySlot = (label: string): ImageSlot => ({
-    file: null, dataUrl: null, label, hash: null, size: null, width: null, height: null, metadataFields: []
+    file: null, dataUrl: null, isPreparing: false, label, hash: null, size: null, width: null, height: null, metadataFields: []
   });
 
   const [slotA, setSlotA] = useState<ImageSlot>(emptySlot("Image A — Original"));
@@ -399,6 +455,7 @@ export default function ImageDiff() {
     const slot: ImageSlot = {
       file: null,
       dataUrl,
+      isPreparing: false,
       label: which === "a" ? "Image A — Original" : "Image B — Cleaned",
       hash,
       size,
@@ -411,25 +468,42 @@ export default function ImageDiff() {
   };
 
   const handleFile = async (file: File, which: "a" | "b") => {
-    const dataUrl = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.readAsDataURL(file);
-    });
-    const img = await loadImageFromDataUrl(dataUrl);
-    const hash = await sha256Short(dataUrl);
-    const slot: ImageSlot = {
+    const preparingSlot: ImageSlot = {
+      ...emptySlot(which === "a" ? "Image A — Original" : "Image B — Cleaned / Modified"),
       file,
-      dataUrl,
-      label: which === "a" ? "Image A — Original" : "Image B — Cleaned / Modified",
-      hash,
-      size: file.size,
-      width: img.naturalWidth,
-      height: img.naturalHeight,
-      metadataFields: which === "a" ? ["EXIF", "GPS", "XMP", "IPTC"] : [],
+      isPreparing: true,
     };
-    if (which === "a") { setSlotA(slot); setDiff(null); }
-    else { setSlotB(slot); setDiff(null); }
+
+    if (which === "a") {
+      setSlotA(preparingSlot);
+      setDiff(null);
+    } else {
+      setSlotB(preparingSlot);
+      setDiff(null);
+    }
+
+    try {
+      const dataUrl = await createImagePreviewDataUrl(file, file.name);
+      const img = await loadImageFromDataUrl(dataUrl);
+      const hash = await sha256Short(dataUrl);
+      const slot: ImageSlot = {
+        file,
+        dataUrl,
+        isPreparing: false,
+        label: which === "a" ? "Image A — Original" : "Image B — Cleaned / Modified",
+        hash,
+        size: file.size,
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+        metadataFields: which === "a" ? ["EXIF", "GPS", "XMP", "IPTC"] : [],
+      };
+      if (which === "a") setSlotA(slot);
+      else setSlotB(slot);
+    } catch (error) {
+      console.error(error);
+      if (which === "a") setSlotA(emptySlot("Image A — Original"));
+      else setSlotB(emptySlot("Image B — Cleaned / Modified"));
+    }
   };
 
   const clearSlot = (which: "a" | "b") => {

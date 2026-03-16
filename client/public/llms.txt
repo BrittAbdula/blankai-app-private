@@ -49,7 +49,7 @@ BlankAI operates on a strict zero-upload architecture. The tool uses the browser
 - HEIC conversion: heic2any (browser-side)
 - ZIP packaging: JSZip (browser-side)
 - Analytics: Umami (privacy-first, no cookies)
-- Hosting: blankai.app (Cloudflare Pages)
+- Hosting: blankai.app
 
 ## Site Structure
 

@@ -14,6 +14,7 @@ import TestimonialsSection from "@/components/TestimonialsSection";
 import WaitlistSection from "@/components/WaitlistSection";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import ImagePreview from "@/components/ImagePreview";
 import {
   Shield,
   Zap,
@@ -23,6 +24,7 @@ import {
   X,
   ChevronDown,
   Upload,
+  LoaderCircle,
   Download,
   Cpu,
   Globe,
@@ -50,8 +52,34 @@ import {
   formatCount,
   type ProcessedImageResult,
 } from "@/lib/imageProcessor";
+import {
+  createImagePreviewDataUrl,
+  fetchPublicFile,
+  isPreviewableImageFile,
+} from "@/lib/imagePreview";
+import {
+  stashPendingRemoverFile,
+  takePendingRemoverFile,
+} from "@/lib/pendingImageRoute";
 
 const repoUrl = "https://github.com/BrittAbdula/blankai-app";
+const HOME_SAMPLE_PATH = "/test.HEIC";
+const HOME_SAMPLE_PREVIEW_PATH = "/test.jpg";
+const HOME_PENDING_UPLOAD_EVENT = "blankai-home-pending-upload";
+const HOME_UPLOAD_HASH = "#upload";
+
+function scrollToUploadSection(behavior: ScrollBehavior = "smooth") {
+  const uploadSection = document.getElementById("upload");
+  if (!uploadSection) return;
+
+  const nav = document.querySelector("nav");
+  const navHeight =
+    nav instanceof HTMLElement ? Math.ceil(nav.getBoundingClientRect().height) : 0;
+  const uploadTop = uploadSection.getBoundingClientRect().top + window.scrollY;
+  const top = Math.max(uploadTop - navHeight - 18, 0);
+
+  window.scrollTo({ top, behavior });
+}
 
 // ─── Intersection Observer Hook ───────────────────────────────────────────────
 function useInView(threshold = 0.1) {
@@ -758,6 +786,7 @@ function UploadZone() {
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [filePreviews, setFilePreviews] = useState<string[]>([]);
+  const [preparingFiles, setPreparingFiles] = useState<File[]>([]);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [results, setResults] = useState<ProcessedImageResult[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -780,64 +809,77 @@ function UploadZone() {
     return () => clearInterval(interval);
   }, [stage]);
 
-  // Auto-load file passed from EXIF Viewer via window.__blankai_pending_file
-  useEffect(() => {
-    const win = window as unknown as Record<string, unknown>;
-    const pending = win.__blankai_pending_file as File | undefined;
-    if (pending instanceof File) {
-      delete win.__blankai_pending_file;
-      handleFilesSelected([pending]);
-      // Scroll to upload zone
-      setTimeout(() => {
-        document
-          .getElementById("upload")
-          ?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 300);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const generatePreviews = (selectedFiles: File[]): Promise<string[]> => {
-    return new Promise(resolve => {
-      const previews: string[] = new Array(selectedFiles.length).fill("");
-      let loaded = 0;
-      selectedFiles.forEach((file, i) => {
-        const reader = new FileReader();
-        reader.onload = e => {
-          previews[i] = e.target?.result as string;
-          loaded++;
-          if (loaded === selectedFiles.length) resolve(previews);
-        };
-        reader.readAsDataURL(file);
-      });
-    });
+    return Promise.all(selectedFiles.map((file) => createImagePreviewDataUrl(file, file.name)));
   };
 
-  const handleFilesSelected = async (selectedFiles: File[]) => {
+  const handleFilesSelected = useCallback(async (
+    selectedFiles: File[],
+    options?: { replace?: boolean },
+  ) => {
     if (!selectedFiles.length) return;
+    const shouldReplace = options?.replace ?? false;
 
     // In staged mode: APPEND new files (deduplicate by name+size, cap at 20 total)
-    const existing = stage === "staged" ? files : [];
-    const existingPreviews = stage === "staged" ? filePreviews : [];
+    const existing = stage === "staged" && !shouldReplace ? files : [];
+    const existingPreviews =
+      stage === "staged" && !shouldReplace ? filePreviews : [];
     const existingKeys = new Set(existing.map(f => `${f.name}-${f.size}`));
     const incoming = selectedFiles.filter(
       f => !existingKeys.has(`${f.name}-${f.size}`)
     );
-    const merged = [...existing, ...incoming].slice(0, 20);
-    const incomingPreviews = await generatePreviews(incoming);
-    const mergedPreviews = [...existingPreviews, ...incomingPreviews].slice(
-      0,
-      20
-    );
+    if (!incoming.length) {
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
 
-    setFiles(merged);
-    setFilePreviews(mergedPreviews);
-    setStage("staged");
+    const merged = [...existing, ...incoming].slice(0, 20);
+
+    setPreparingFiles(incoming);
     setErrorMsg(null);
-    setResults([]);
-    // Clear input so the same file can be re-selected next time
-    if (inputRef.current) inputRef.current.value = "";
-  };
+
+    try {
+      const incomingPreviews = await generatePreviews(incoming);
+      const mergedPreviews = [...existingPreviews, ...incomingPreviews].slice(
+        0,
+        20
+      );
+
+      setFiles(merged);
+      setFilePreviews(mergedPreviews);
+      setStage("staged");
+      setResults([]);
+    } catch (err) {
+      console.error(err);
+      setErrorMsg("Could not prepare image preview. Please try a different file.");
+      setStage("error");
+    } finally {
+      setPreparingFiles([]);
+      // Clear input so the same file can be re-selected next time
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }, [filePreviews, files, stage]);
+
+  // Auto-load file passed from EXIF Viewer or Hero sample card
+  useEffect(() => {
+    const acceptPendingUpload = () => {
+      const pending = takePendingRemoverFile();
+      if (!pending) return;
+
+      void handleFilesSelected([pending], { replace: true });
+
+      window.setTimeout(() => {
+        scrollToUploadSection();
+      }, 160);
+    };
+
+    acceptPendingUpload();
+    window.addEventListener(HOME_PENDING_UPLOAD_EVENT, acceptPendingUpload);
+
+    return () => {
+      window.removeEventListener(HOME_PENDING_UPLOAD_EVENT, acceptPendingUpload);
+    };
+  }, [handleFilesSelected]);
 
   const startProcessing = async () => {
     setStage("processing");
@@ -871,7 +913,7 @@ function UploadZone() {
     e.preventDefault();
     setIsDragging(false);
     const dropped = Array.from(e.dataTransfer.files)
-      .filter(f => f.type.startsWith("image/"))
+      .filter(isPreviewableImageFile)
       .slice(0, 20);
     handleFilesSelected(dropped);
   };
@@ -896,6 +938,13 @@ function UploadZone() {
     progress.total > 0
       ? Math.round((progress.current / progress.total) * 100)
       : 0;
+  const isPreparingFiles = preparingFiles.length > 0;
+  const preparingHasHeic = preparingFiles.some(
+    (file) =>
+      file.type === "image/heic" ||
+      file.type === "image/heif" ||
+      /\.(heic|heif)$/i.test(file.name),
+  );
 
   // Current image index clamped to valid range
   const currentIdx = Math.min(progress.current, progress.total - 1);
@@ -915,7 +964,48 @@ function UploadZone() {
       {/* ──────────────────────────────────────────────────────────────────────────────────────────────────── */}
       {/* STAGE: IDLE — Drop Zone */}
       {/* ──────────────────────────────────────────────────────────────────────────────────────────────────── */}
-      {stage === "idle" && (
+      {isPreparingFiles && stage !== "processing" && (
+        <div
+          className="relative overflow-hidden rounded-xl border border-cyan/30 p-10 text-center"
+          style={{
+            background:
+              "linear-gradient(135deg, oklch(0.18 0.03 220 / 0.95), oklch(0.14 0.02 220 / 0.98))",
+          }}
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(0,212,255,0.14),transparent_48%)]" />
+          <div className="relative flex flex-col items-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-cyan/30 bg-cyan/10">
+              <LoaderCircle className="h-7 w-7 animate-spin text-cyan" />
+            </div>
+            <div>
+              <p className="font-display text-lg font-semibold text-foreground">
+                {preparingHasHeic ? "Preparing HEIC preview…" : "Preparing image preview…"}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {preparingHasHeic
+                  ? "Converting HEIC so the preview opens instantly and keeps the flow responsive."
+                  : "Optimizing the preview before the image enters the workflow."}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground/70">
+                {preparingFiles.length > 1
+                  ? `${preparingFiles.length} files queued`
+                  : preparingFiles[0]?.name}
+              </p>
+            </div>
+            <div className="flex gap-1.5">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="h-2.5 w-2.5 rounded-full bg-cyan/90 animate-bounce"
+                  style={{ animationDelay: `${i * 0.12}s` }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {stage === "idle" && !isPreparingFiles && (
         <div
           className={`relative border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all duration-300 ${
             isDragging
@@ -964,7 +1054,7 @@ function UploadZone() {
       {/* ──────────────────────────────────────────────────────────────────────────────────────────────────── */}
       {/* STAGE: STAGED — Preview + Start Button */}
       {/* ──────────────────────────────────────────────────────────────────────────────────────────────────── */}
-      {stage === "staged" && (
+      {stage === "staged" && !isPreparingFiles && (
         <div
           className="border border-border rounded-xl overflow-hidden bg-card"
           style={{ animation: "fadeInUp 0.35s ease" }}
@@ -993,7 +1083,7 @@ function UploadZone() {
 
           {/* Thumbnail grid */}
           <div className="p-4">
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               {filePreviews.map((src, i) => (
                 <div
                   key={i}
@@ -1002,20 +1092,24 @@ function UploadZone() {
                     animation: `scaleIn 0.25s cubic-bezier(0.175,0.885,0.32,1.275) ${i * 0.04}s both`,
                   }}
                 >
-                  <img
+                  <ImagePreview
                     src={src}
-                    alt={files[i]?.name}
-                    className="w-full h-full object-cover"
+                    alt={files[i]?.name ?? "Selected image preview"}
+                    file={files[i] ?? null}
+                    actionPlacement="bottom-right"
+                    actionVariant="compact"
+                    className="h-full w-full"
+                    imgClassName="object-cover"
+                    fallbackLabel="No preview"
                   />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <button
-                      onClick={() => removeFile(i)}
-                      className="w-6 h-6 rounded-full bg-destructive/80 flex items-center justify-center hover:bg-destructive transition-colors"
-                    >
-                      <X className="w-3 h-3 text-white" />
-                    </button>
-                  </div>
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-0.5">
+                  <button
+                    onClick={() => removeFile(i)}
+                    className="absolute left-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/55 text-white shadow-[0_8px_24px_rgba(0,0,0,0.32)] backdrop-blur-md transition-all duration-200 hover:bg-destructive hover:text-white"
+                    aria-label={`Remove ${files[i]?.name ?? "image"}`}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-0.5 pr-20">
                     <p className="text-white text-[9px] truncate font-mono-custom">
                       {files[i]?.name}
                     </p>
@@ -1094,10 +1188,13 @@ function UploadZone() {
                         animation: `fadeInUp 0.3s ease ${i * 0.04}s both`,
                       }}
                     >
-                      <img
+                      <ImagePreview
                         src={src}
-                        alt=""
-                        className="w-full h-full object-cover"
+                        alt={`Processing preview ${i + 1}`}
+                        showExifAction={false}
+                        className="h-full w-full"
+                        imgClassName="object-cover"
+                        fallbackLabel="No preview"
                       />
                       {isDone && (
                         <div className="absolute inset-0 bg-cyan/25 flex items-center justify-center">
@@ -1290,10 +1387,63 @@ function UploadZone() {
 export default function Home() {
   const statsSection = useInView(0.3);
   const [statsStarted, setStatsStarted] = useState(false);
+  const [sampleFile, setSampleFile] = useState<File | null>(null);
+  const [sampleLoading, setSampleLoading] = useState(false);
+  const [sampleError, setSampleError] = useState<string | null>(null);
 
   useEffect(() => {
     if (statsSection.inView) setStatsStarted(true);
   }, [statsSection.inView]);
+
+  useEffect(() => {
+    let timeoutId = 0;
+
+    const alignUploadHash = (behavior: ScrollBehavior) => {
+      if (window.location.hash !== HOME_UPLOAD_HASH) return;
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        scrollToUploadSection(behavior);
+      }, 0);
+    };
+
+    const handleHashChange = () => {
+      alignUploadHash("smooth");
+    };
+
+    alignUploadHash("auto");
+    window.addEventListener("hashchange", handleHashChange);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, []);
+
+  const loadHeroSample = useCallback(async () => {
+    setSampleError(null);
+    setSampleLoading(true);
+
+    try {
+      let file = sampleFile;
+
+      if (!file) {
+        file = await fetchPublicFile(HOME_SAMPLE_PATH);
+        setSampleFile(file);
+      }
+
+      if (!file) {
+        throw new Error("Sample file unavailable");
+      }
+
+      stashPendingRemoverFile(file);
+      window.dispatchEvent(new Event(HOME_PENDING_UPLOAD_EVENT));
+    } catch (error) {
+      console.error(error);
+      setSampleError("Could not load the sample HEIC file.");
+    } finally {
+      setSampleLoading(false);
+    }
+  }, [sampleFile]);
 
   const features = [
     {
@@ -1547,23 +1697,57 @@ export default function Home() {
               </a>
             </div>
 
-            {/* Right side: mini upload preview on desktop */}
-            <div className="hidden lg:block">
-              <div className="bg-card/60 backdrop-blur-sm border border-cyan/20 rounded-2xl p-6 glow-cyan">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-2 h-2 rounded-full bg-red-400" />
-                  <div className="w-2 h-2 rounded-full bg-amber-400" />
-                  <div className="w-2 h-2 rounded-full bg-green-400" />
-                  <span className="text-xs font-mono-custom text-muted-foreground ml-2">
-                    blankai.app — AI Metadata Remover
+            <div className="lg:justify-self-end lg:w-full lg:max-w-sm">
+              <button
+                type="button"
+                onClick={loadHeroSample}
+                disabled={sampleLoading}
+                className="group w-full rounded-3xl border border-cyan/20 bg-card/60 p-4 text-left backdrop-blur-sm transition-all duration-300 hover:border-cyan/40 hover:bg-card/80 disabled:cursor-wait disabled:opacity-80"
+              >
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <p className="text-[10px] font-mono-custom uppercase tracking-[0.22em] text-muted-foreground/70">
+                      Sample Test File
+                    </p>
+                    <p className="font-display text-lg font-bold text-foreground mt-1">
+                      Try <code className="rounded bg-cyan/10 px-1.5 py-0.5 text-cyan text-sm">test.HEIC</code>
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-cyan/20 bg-cyan/10 px-2.5 py-1 text-[10px] font-semibold text-cyan">
+                    {sampleLoading ? "Loading..." : "Load into remover"}
                   </span>
                 </div>
-                <UploadZone />
-                <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                  <Lock className="w-3 h-3 text-cyan" />
-                  <span>Zero server uploads · 100% browser-based</span>
+
+                <div className="aspect-[4/5] overflow-hidden rounded-2xl border border-border/50 bg-muted/20">
+                  <ImagePreview
+                    src={HOME_SAMPLE_PREVIEW_PATH}
+                    alt="Bundled sample preview"
+                    showExifAction={false}
+                    className="h-full w-full"
+                    imgClassName="object-cover"
+                    fallbackLabel="Bundled sample preview"
+                  />
                 </div>
-              </div>
+
+                <div className="mt-4 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      Jump straight into the real workflow
+                    </p>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                      This loads the bundled sample into the only remover module below, so the homepage stays focused on one processing flow.
+                    </p>
+                  </div>
+                  <ArrowRight className="mt-0.5 h-4 w-4 flex-shrink-0 text-cyan transition-transform duration-300 group-hover:translate-x-1" />
+                </div>
+              </button>
+
+              {sampleError && (
+                <div className="mt-3 flex items-center gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  <span>{sampleError}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1673,7 +1857,7 @@ export default function Home() {
       </div>
 
       {/* ── Upload Tool Section ── */}
-      <section id="upload" className="py-20">
+      <section id="upload" className="scroll-mt-24 py-20 lg:scroll-mt-28">
         <div className="container max-w-3xl">
           <div className="text-center mb-10">
             <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-3">

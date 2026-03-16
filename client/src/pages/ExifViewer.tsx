@@ -10,7 +10,7 @@
  * - SEO: full meta, canonical, structured data, FAQ section
  */
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Upload, File, Camera, MapPin, Clock, FileText, Layers, Palette,
@@ -18,10 +18,21 @@ import {
   ChevronDown, ChevronRight, ExternalLink, Zap, Copy, Check,
   Eye, Info, X, Search
 } from "lucide-react";
+import ImagePreview from "@/components/ImagePreview";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import { usePageMeta } from "@/hooks/usePageMeta";
 import { extractExif, type ExifResult, type MetaGroup } from "@/lib/exifReader";
+import { createImagePreviewDataUrl, fetchPublicFile } from "@/lib/imagePreview";
+import {
+  createPendingExifTransferChannel,
+  EXIF_TRANSFER_ERROR,
+  EXIF_TRANSFER_FILE,
+  EXIF_TRANSFER_RECEIVED,
+  EXIF_TRANSFER_READY,
+  openPendingRemover,
+  takePendingExifViewerFile,
+} from "@/lib/pendingImageRoute";
 
 // ─── Icon map ─────────────────────────────────────────────────────────────────
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -74,6 +85,18 @@ function CopyBtn({ text }: { text: string }) {
   );
 }
 
+function buildGoogleMapsUrl(lat: number, lon: number) {
+  return `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(7)},${lon.toFixed(7)}`;
+}
+
+function buildAppleMapsUrl(lat: number, lon: number) {
+  const coord = `${lat.toFixed(7)},${lon.toFixed(7)}`;
+  return `https://maps.apple.com/?q=${coord}&ll=${coord}`;
+}
+
+const HERO_SAMPLE_PATH = "/test.HEIC";
+const HERO_SAMPLE_PREVIEW_PATH = "/test.jpg";
+
 // ─── Metadata group panel ─────────────────────────────────────────────────────
 function GroupPanel({ group, isActive }: { group: MetaGroup; isActive: boolean }) {
   const [open, setOpen] = useState(true);
@@ -89,7 +112,7 @@ function GroupPanel({ group, isActive }: { group: MetaGroup; isActive: boolean }
   return (
     <div
       id={`group-${group.id}`}
-      className={`rounded-xl border transition-all duration-200 ${
+      className={`scroll-mt-44 rounded-xl border transition-all duration-200 lg:scroll-mt-24 ${
         isActive
           ? "border-cyan/40 bg-navy-800/80"
           : "border-border/50 bg-navy-800/40"
@@ -153,18 +176,7 @@ function GroupPanel({ group, isActive }: { group: MetaGroup; isActive: boolean }
                     </span>
                   </div>
                   <div className="flex-1 min-w-0 flex items-start gap-1">
-                    {field.key === 'maps_link' ? (
-                      // geo: URI — opens native map app on iOS/Android, falls back to browser
-                      <a
-                        href={field.value}
-                        className="text-xs text-cyan hover:text-cyan/80 underline underline-offset-2 break-all leading-relaxed flex items-center gap-1"
-                        onClick={e => e.stopPropagation()}
-                      >
-                        <MapPin className="w-3 h-3 flex-shrink-0" />
-                        Open in Maps App
-                        <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
-                      </a>
-                    ) : (field.key === 'maps_link_google' || field.key === 'maps_link_apple') ? (
+                    {(field.key === 'maps_link_google' || field.key === 'maps_link_apple') ? (
                       <a
                         href={field.value}
                         target="_blank"
@@ -172,7 +184,7 @@ function GroupPanel({ group, isActive }: { group: MetaGroup; isActive: boolean }
                         className="text-xs text-cyan hover:text-cyan/80 underline underline-offset-2 break-all leading-relaxed flex items-center gap-1"
                         onClick={e => e.stopPropagation()}
                       >
-                        {field.key === 'maps_link_apple' ? '🍎' : '🗺️'}
+                        <MapPin className="w-3 h-3 flex-shrink-0" />
                         {field.key === 'maps_link_apple' ? 'Open in Apple Maps' : 'Open in Google Maps'}
                         <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
                       </a>
@@ -181,7 +193,7 @@ function GroupPanel({ group, isActive }: { group: MetaGroup; isActive: boolean }
                         {field.value}
                       </span>
                     )}
-                    {!['maps_link', 'maps_link_google', 'maps_link_apple'].includes(field.key) && <CopyBtn text={field.value} />}
+                    {!['maps_link_google', 'maps_link_apple'].includes(field.key) && <CopyBtn text={field.value} />}
                   </div>
                 </div>
               ))}
@@ -320,7 +332,12 @@ export default function ExifViewer() {
   const [isReady, setIsReady] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [currentFile, setCurrentFile] = useState<File | null>(null);
+  const [sampleFile, setSampleFile] = useState<File | null>(null);
+  const [sampleLoading, setSampleLoading] = useState(false);
+  const [sampleError, setSampleError] = useState<string | null>(null);
+  const [pendingTransfer, setPendingTransfer] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const mobileCategoryNavRef = useRef<HTMLDivElement>(null);
   const [, navigate] = useLocation();
 
   // Navigate to home with current file pre-loaded into the metadata remover
@@ -329,9 +346,7 @@ export default function ExifViewer() {
       navigate("/#upload");
       return;
     }
-    // Store file in a module-level variable (sessionStorage can't hold File objects)
-    (window as unknown as Record<string, unknown>).__blankai_pending_file = file;
-    navigate("/");
+    openPendingRemover(file, navigate);
   }, [navigate]);
 
   useEffect(() => {
@@ -353,12 +368,13 @@ export default function ExifViewer() {
     setError(null);
     setResult(null);
     setCurrentFile(file);
-    // Generate preview URL (works for JPEG/PNG/WebP; HEIC may show blank in browser)
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    const objUrl = URL.createObjectURL(file);
-    setPreviewUrl(objUrl);
+    setPreviewUrl(null);
     try {
-      const data = await extractExif(file);
+      const [data, nextPreviewUrl] = await Promise.all([
+        extractExif(file),
+        createImagePreviewDataUrl(file, file.name).catch(() => null),
+      ]);
+      setPreviewUrl(nextPreviewUrl);
       // If no metadata found at all (not even file info fields beyond the basics)
       if (data.totalFields <= 5 && !data.hasGPS && !data.hasCameraInfo) {
         // Still show result, but with a note
@@ -385,6 +401,217 @@ export default function ExifViewer() {
     }
   }, []);
 
+  const normalizeTransferredFile = useCallback(async (value: unknown) => {
+    if (value instanceof globalThis.File) return value;
+
+    if (value instanceof Blob) {
+      return new globalThis.File([value], "transferred-image", {
+        type: value.type,
+        lastModified: Date.now(),
+      });
+    }
+
+    if (
+      value &&
+      typeof value === "object" &&
+      "arrayBuffer" in value &&
+      typeof (value as Blob).arrayBuffer === "function" &&
+      "name" in value &&
+      typeof (value as { name: unknown }).name === "string"
+    ) {
+      const candidate = value as {
+        arrayBuffer: () => Promise<ArrayBuffer>;
+        lastModified?: number;
+        name: string;
+        type?: string;
+      };
+      const buffer = await candidate.arrayBuffer();
+      return new globalThis.File([buffer], candidate.name, {
+        type: candidate.type,
+        lastModified: candidate.lastModified,
+      });
+    }
+
+    return null;
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const pendingId = new URLSearchParams(window.location.search).get("pending");
+    const sameTabPending = takePendingExifViewerFile();
+
+    const finalizePendingScroll = () => {
+      setTimeout(() => {
+        document
+          .getElementById("exif-tool")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 120);
+    };
+
+    if (sameTabPending) {
+      void processFile(sameTabPending).then(() => {
+        if (!cancelled) finalizePendingScroll();
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (!pendingId) return;
+
+    const openPending = async () => {
+      const channel = createPendingExifTransferChannel(pendingId);
+      setPendingTransfer(true);
+      setLoading(true);
+      setError(null);
+      setResult(null);
+
+      const detachTransport = () => {
+        window.removeEventListener("message", onWindowMessage);
+        if (channel) channel.onmessage = null;
+      };
+
+      const closeTransport = () => {
+        channel?.close();
+      };
+
+      const timeout = window.setTimeout(() => {
+        if (cancelled) return;
+        setPendingTransfer(false);
+        setLoading(false);
+        setError("Could not open this image in EXIF Viewer. Please try again.");
+        detachTransport();
+        if (channel) {
+          channel.postMessage({ pendingId, type: EXIF_TRANSFER_ERROR });
+          closeTransport();
+        } else {
+          window.opener?.postMessage(
+            { pendingId, type: EXIF_TRANSFER_ERROR },
+            window.location.origin,
+          );
+        }
+      }, 15000);
+
+      async function handleIncomingTransfer(
+        data:
+          | { file?: File; pendingId?: string; type?: string }
+          | undefined,
+      ) {
+
+        if (!data || data.type !== EXIF_TRANSFER_FILE || data.pendingId !== pendingId) {
+          return;
+        }
+
+        window.clearTimeout(timeout);
+        detachTransport();
+
+        const incomingFile = await normalizeTransferredFile(data.file);
+        if (!incomingFile) {
+          if (!cancelled) {
+            setPendingTransfer(false);
+            setLoading(false);
+            setError("Could not open this image in EXIF Viewer. Please try again.");
+          }
+          if (channel) {
+            channel.postMessage({ pendingId, type: EXIF_TRANSFER_ERROR });
+            closeTransport();
+          } else {
+            window.opener?.postMessage(
+              { pendingId, type: EXIF_TRANSFER_ERROR },
+              window.location.origin,
+            );
+          }
+          return;
+        }
+
+        try {
+          window.history.replaceState({}, "", "/exif-viewer");
+          await processFile(incomingFile);
+          if (!cancelled) finalizePendingScroll();
+          if (channel) {
+            channel.postMessage({ pendingId, type: EXIF_TRANSFER_RECEIVED });
+            closeTransport();
+          } else {
+            window.opener?.postMessage(
+              { pendingId, type: EXIF_TRANSFER_RECEIVED },
+              window.location.origin,
+            );
+          }
+        } catch (pendingError) {
+          console.error(pendingError);
+          if (!cancelled) {
+            setLoading(false);
+            setError("Could not open this image in EXIF Viewer. Please try again.");
+          }
+          if (channel) {
+            channel.postMessage({ pendingId, type: EXIF_TRANSFER_ERROR });
+            closeTransport();
+          } else {
+            window.opener?.postMessage(
+              { pendingId, type: EXIF_TRANSFER_ERROR },
+              window.location.origin,
+            );
+          }
+        } finally {
+          if (!cancelled) {
+            setPendingTransfer(false);
+          }
+        }
+      }
+
+      function onWindowMessage(event: MessageEvent) {
+        if (event.origin !== window.location.origin) return;
+        void handleIncomingTransfer(
+          event.data as
+            | { file?: File; pendingId?: string; type?: string }
+            | undefined,
+        );
+      }
+
+      if (channel) {
+        channel.onmessage = event => {
+          void handleIncomingTransfer(
+            event.data as
+              | { file?: File; pendingId?: string; type?: string }
+              | undefined,
+          );
+        };
+        channel.postMessage({ pendingId, type: EXIF_TRANSFER_READY });
+      } else {
+        window.addEventListener("message", onWindowMessage);
+        window.opener?.postMessage(
+          { pendingId, type: EXIF_TRANSFER_READY },
+          window.location.origin,
+        );
+      }
+    };
+
+    void openPending();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [normalizeTransferredFile, processFile]);
+
+  const useHeroSample = useCallback(async () => {
+    setSampleError(null);
+    setSampleLoading(true);
+    try {
+      let file = sampleFile;
+
+      if (!file) {
+        file = await fetchPublicFile(HERO_SAMPLE_PATH);
+        setSampleFile(file);
+      }
+
+      await processFile(file);
+    } catch {
+      setSampleError("Could not load the sample HEIC file.");
+    } finally {
+      setSampleLoading(false);
+    }
+  }, [processFile, sampleFile]);
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
@@ -403,7 +630,7 @@ export default function ExifViewer() {
     setError(null);
     setLoading(false);
     setCurrentFile(null);
-    if (previewUrl) { URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }
+    setPreviewUrl(null);
   };
 
   // Export helpers
@@ -439,8 +666,69 @@ export default function ExifViewer() {
 
   const scrollToGroup = (id: string) => {
     setActiveGroup(id);
-    document.getElementById(`group-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const group = document.getElementById(`group-${id}`);
+    if (!group) return;
+
+    const isDesktop = window.innerWidth >= 1024;
+    const mobileNavBottom = mobileCategoryNavRef.current?.getBoundingClientRect().bottom ?? 120;
+    const offset = isDesktop ? 96 : mobileNavBottom + 16;
+    const nextTop = window.scrollY + group.getBoundingClientRect().top - offset;
+
+    window.scrollTo({
+      top: Math.max(nextTop, 0),
+      behavior: "smooth",
+    });
   };
+
+  useEffect(() => {
+    if (!result) return;
+
+    const groups = result.groups
+      .map(group => ({
+        id: group.id,
+        element: document.getElementById(`group-${group.id}`),
+      }))
+      .filter((entry): entry is { id: string; element: HTMLElement } => Boolean(entry.element));
+
+    if (groups.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter(entry => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+
+        if (visible?.target.id) {
+          setActiveGroup(visible.target.id.replace("group-", ""));
+        }
+      },
+      {
+        rootMargin: "-120px 0px -45% 0px",
+        threshold: [0.2, 0.35, 0.5, 0.75],
+      }
+    );
+
+    groups.forEach(({ element }) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [result]);
+
+  useEffect(() => {
+    const activeButton = mobileCategoryNavRef.current?.querySelector<HTMLButtonElement>(
+      `[data-group-nav="${activeGroup}"]`
+    );
+    activeButton?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [activeGroup]);
+
+  const gpsMapLinks = useMemo(() => {
+    if (!result?.hasGPS || result.gpsLat == null || result.gpsLon == null) {
+      return null;
+    }
+
+    return {
+      google: buildGoogleMapsUrl(result.gpsLat, result.gpsLon),
+      apple: buildAppleMapsUrl(result.gpsLat, result.gpsLon),
+    };
+  }, [result]);
 
   // ── Skeleton ────────────────────────────────────────────────────────────────
   if (!isReady) {
@@ -489,37 +777,84 @@ export default function ExifViewer() {
               <span className="text-foreground">EXIF Viewer</span>
             </nav>
 
-            <div className="max-w-3xl">
-              {/* Tool badge */}
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan/30 bg-cyan/5 text-cyan text-xs font-semibold mb-4">
-                <Eye className="w-3.5 h-3.5" />
-                Free Online Tool · No Upload Required
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
+              <div className="max-w-3xl">
+                {/* Tool badge */}
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan/30 bg-cyan/5 text-cyan text-xs font-semibold mb-4">
+                  <Eye className="w-3.5 h-3.5" />
+                  Free Online Tool · No Upload Required
+                </div>
+
+                <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4 leading-tight">
+                  EXIF Viewer —{" "}
+                  <span className="text-cyan">Read Image Metadata</span>{" "}
+                  Instantly
+                </h1>
+                <p className="text-muted-foreground text-base sm:text-lg leading-relaxed max-w-2xl">
+                  Inspect <strong className="text-foreground">GPS coordinates, camera settings, AI generation data, C2PA manifests,
+                  IPTC copyright</strong> and 100+ metadata fields from any image. 100% browser-based — your files never leave your device.
+                </p>
+
+                {/* Feature pills */}
+                <div className="flex flex-wrap gap-2 mt-5">
+                  {["JPEG / PNG / WebP", "HEIC / TIFF / RAW", "GPS Coordinates", "AI Metadata Detection", "C2PA / XMP / IPTC", "Export JSON & CSV"].map(tag => (
+                    <span key={tag} className="px-2.5 py-1 rounded-full bg-muted/40 border border-border/50 text-xs text-muted-foreground">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
 
-              <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4 leading-tight">
-                EXIF Viewer —{" "}
-                <span className="text-cyan">Read Image Metadata</span>{" "}
-                Instantly
-              </h1>
-              <p className="text-muted-foreground text-base sm:text-lg leading-relaxed max-w-2xl">
-                Inspect <strong className="text-foreground">GPS coordinates, camera settings, AI generation data, C2PA manifests,
-                IPTC copyright</strong> and 100+ metadata fields from any image. 100% browser-based — your files never leave your device.
-              </p>
-
-              {/* Feature pills */}
-              <div className="flex flex-wrap gap-2 mt-5">
-                {["JPEG / PNG / WebP", "HEIC / TIFF / RAW", "GPS Coordinates", "AI Metadata Detection", "C2PA / XMP / IPTC", "Export JSON & CSV"].map(tag => (
-                  <span key={tag} className="px-2.5 py-1 rounded-full bg-muted/40 border border-border/50 text-xs text-muted-foreground">
-                    {tag}
+              <button
+                type="button"
+                onClick={useHeroSample}
+                disabled={loading || sampleLoading}
+                className="group w-full rounded-3xl border border-cyan/20 bg-card/60 p-4 text-left transition-all duration-300 hover:border-cyan/40 hover:bg-card/80 disabled:cursor-wait disabled:opacity-80"
+              >
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <p className="text-[10px] font-mono-custom uppercase tracking-[0.22em] text-muted-foreground/70">
+                      Sample Test Image
+                    </p>
+                    <p className="font-display text-lg font-bold text-foreground mt-1">
+                      Try <code className="rounded bg-cyan/10 px-1.5 py-0.5 text-cyan text-sm">test.HEIC</code>
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-cyan/20 bg-cyan/10 px-2.5 py-1 text-[10px] font-semibold text-cyan">
+                    {loading ? "Reading..." : sampleLoading ? "Preparing..." : "Click to inspect"}
                   </span>
-                ))}
-              </div>
+                </div>
+
+                <div className="aspect-[4/5] overflow-hidden rounded-2xl border border-border/50 bg-muted/20">
+                  <ImagePreview
+                    src={HERO_SAMPLE_PREVIEW_PATH}
+                    alt="Bundled sample preview"
+                    showExifAction={false}
+                    className="h-full w-full"
+                    imgClassName="object-cover"
+                    fallbackLabel="Sample preview unavailable"
+                  />
+                </div>
+
+                <div className="mt-3 flex items-start justify-between gap-4">
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Load the bundled iPhone HEIC sample and immediately test GPS, camera metadata, and HEIC preview support.
+                  </p>
+                  <span className="shrink-0 text-xs font-semibold text-cyan transition-transform duration-300 group-hover:translate-x-0.5">
+                    Open sample
+                  </span>
+                </div>
+
+                {sampleError && (
+                  <p className="mt-2 text-xs text-red-400">{sampleError}</p>
+                )}
+              </button>
             </div>
           </div>
         </section>
 
         {/* ── Tool area ── */}
-        <section className="py-10">
+        <section id="exif-tool" className="py-10">
           <div className="container">
             {!result && !loading && (
               /* Upload zone */
@@ -583,12 +918,22 @@ export default function ExifViewer() {
               <div className="rounded-2xl border border-border/50 bg-navy-800/40 p-12 text-center">
                 <div className="flex flex-col items-center gap-4">
                   <div className="w-16 h-16 rounded-2xl gradient-cyan flex items-center justify-center">
-                    <Search className="w-7 h-7 text-navy animate-pulse" />
+                    <Search className={`w-7 h-7 text-navy ${pendingTransfer ? "animate-spin" : "animate-pulse"}`} />
                   </div>
                   <div>
-                    <p className="text-lg font-semibold text-foreground mb-1">Reading metadata…</p>
-                    <p className="text-sm text-muted-foreground">Parsing EXIF, GPS, XMP, IPTC, C2PA segments</p>
-                    <p className="text-xs text-muted-foreground/60 mt-1">HEIC/large files may take a few seconds</p>
+                    <p className="text-lg font-semibold text-foreground mb-1">
+                      {pendingTransfer ? "Opening image in EXIF Viewer…" : "Reading metadata…"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {pendingTransfer
+                        ? "Transferring the image into this tab and preparing the HEIC preview."
+                        : "Parsing EXIF, GPS, XMP, IPTC, C2PA segments"}
+                    </p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">
+                      {pendingTransfer
+                        ? "The first HEIC open can take a few seconds, especially on larger files."
+                        : "HEIC/large files may take a few seconds"}
+                    </p>
                   </div>
                   <div className="flex gap-1.5 mt-2">
                     {[0, 1, 2].map(i => (
@@ -612,11 +957,13 @@ export default function ExifViewer() {
                     {/* Thumbnail preview */}
                     {previewUrl && (
                       <div className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-border/50 bg-muted/30">
-                        <img
+                        <ImagePreview
                           src={previewUrl}
                           alt={result.fileName}
-                          className="w-full h-full object-cover"
-                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          showExifAction={false}
+                          className="h-full w-full"
+                          imgClassName="object-cover"
+                          fallbackLabel="No preview"
                         />
                       </div>
                     )}
@@ -655,54 +1002,6 @@ export default function ExifViewer() {
                   </div>
                 </div>
 
-                {/* GPS location banner — shown when GPS data found */}
-                {result.hasGPS && result.gpsLat != null && result.gpsLon != null && (
-                  <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                      <div className="flex items-center gap-2 text-red-400">
-                        <MapPin className="w-5 h-5 flex-shrink-0" />
-                        <span className="font-bold text-sm">GPS Location Detected</span>
-                      </div>
-                      <div className="flex-1 font-mono text-xs text-foreground bg-red-500/10 px-3 py-1.5 rounded-lg">
-                        {result.gpsLat.toFixed(6)}, {result.gpsLon.toFixed(6)}
-                      </div>
-                      <div className="flex gap-2 flex-wrap">
-                        {/* geo: opens native map app on mobile */}
-                        <a
-                          href={`geo:${result.gpsLat.toFixed(7)},${result.gpsLon.toFixed(7)}`}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/25 transition-colors"
-                        >
-                          <MapPin className="w-3 h-3" />
-                          Maps App
-                        </a>
-                        <a
-                          href={`https://maps.apple.com/?q=${result.gpsLat.toFixed(7)},${result.gpsLon.toFixed(7)}&ll=${result.gpsLat.toFixed(7)},${result.gpsLon.toFixed(7)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/25 transition-colors"
-                        >
-                          🍎 Apple
-                        </a>
-                        <a
-                          href={`https://maps.google.com/?q=${result.gpsLat.toFixed(7)},${result.gpsLon.toFixed(7)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/25 transition-colors"
-                        >
-                          🗺️ Google
-                        </a>
-                        <button
-                          onClick={() => goToRemover(currentFile)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg gradient-cyan text-navy text-xs font-bold hover:opacity-90 transition-opacity"
-                        >
-                          <Zap className="w-3 h-3" />
-                          Remove GPS
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* Screenshot warning banner */}
                 {result.groups[0]?.fields.some(f => f.key === "_screenshot_note") && (
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 flex gap-3">
@@ -718,11 +1017,52 @@ export default function ExifViewer() {
                   </div>
                 )}
 
-                {/* Risk summary */}
-                <RiskSummary result={result} onRemove={() => goToRemover(currentFile)} />
-
                 {/* Main layout: sidebar + content */}
-                <div className="flex gap-6 items-start">
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+                  {/* Category nav (mobile / tablet) */}
+                  <div className="w-full lg:hidden sticky top-16 z-20 -mx-4 px-4 pb-2 pt-1">
+                    <div className="rounded-2xl border border-border/40 bg-background/85 backdrop-blur-md shadow-[0_10px_40px_rgba(4,10,20,0.28)]">
+                      <div className="flex items-center justify-between px-4 pt-3">
+                        <p className="text-[10px] font-mono-custom text-muted-foreground/60 uppercase tracking-[0.2em]">
+                          Categories
+                        </p>
+                        <span className="text-[10px] text-muted-foreground/50">
+                          Swipe to jump
+                        </span>
+                      </div>
+                      <div
+                        ref={mobileCategoryNavRef}
+                        className="flex gap-2 overflow-x-auto px-3 pb-3 pt-2 scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] snap-x snap-mandatory"
+                      >
+                        {result.groups.map(group => (
+                          <button
+                            key={group.id}
+                            data-group-nav={group.id}
+                            onClick={() => scrollToGroup(group.id)}
+                            className={`snap-start shrink-0 min-w-fit rounded-xl border px-3 py-2 text-left transition-all ${
+                              activeGroup === group.id
+                                ? "border-cyan/40 bg-cyan/10 text-cyan shadow-[0_0_0_1px_rgba(0,255,255,0.08)]"
+                                : "border-border/50 bg-muted/20 text-muted-foreground"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className={`flex-shrink-0 ${group.color}`}>
+                                {ICON_MAP[group.icon] ?? <File className="w-4 h-4" />}
+                              </span>
+                              <span className="text-xs font-medium whitespace-nowrap">{group.label}</span>
+                              {group.riskLevel !== "none" && (
+                                <span className={`w-1.5 h-1.5 rounded-full ${
+                                  group.riskLevel === "high" ? "bg-red-400" :
+                                  group.riskLevel === "medium" ? "bg-amber-400" : "bg-blue-400"
+                                }`} />
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Sidebar category nav (desktop) */}
                   <aside className="hidden lg:block w-52 flex-shrink-0 sticky top-20">
                     <p className="text-[10px] font-mono-custom text-muted-foreground/50 uppercase tracking-wider px-2 mb-2">Categories</p>
@@ -730,6 +1070,7 @@ export default function ExifViewer() {
                       {result.groups.map(group => (
                         <button
                           key={group.id}
+                          data-group-nav={group.id}
                           onClick={() => scrollToGroup(group.id)}
                           className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left text-sm transition-all ${
                             activeGroup === group.id
@@ -755,26 +1096,10 @@ export default function ExifViewer() {
                         </button>
                       ))}
                     </nav>
-
-                    {/* Remove CTA in sidebar */}
-                    {(result.sensitiveCount > 0 || result.aiRelatedCount > 0) && (
-                      <div className="mt-4 p-3 rounded-xl bg-cyan/5 border border-cyan/20">
-                        <p className="text-xs text-muted-foreground mb-2">
-                          Found {result.sensitiveCount + result.aiRelatedCount} sensitive fields
-                        </p>
-                        <Link
-                          href="/"
-                          className="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-lg gradient-cyan text-navy text-xs font-bold hover:opacity-90 transition-opacity"
-                        >
-                          <Zap className="w-3 h-3" />
-                          Remove All Free
-                        </Link>
-                      </div>
-                    )}
                   </aside>
 
                   {/* Metadata groups */}
-                  <div className="flex-1 min-w-0 space-y-3">
+                  <div className="w-full flex-1 min-w-0 space-y-3">
                     {result.groups.map(group => (
                       <GroupPanel
                         key={group.id}
@@ -794,14 +1119,64 @@ export default function ExifViewer() {
                             BlankAI strips EXIF, GPS, C2PA, and AI pixel fingerprints in seconds — free, no account needed.
                           </p>
                         </div>
-                        <Link
-                          href="/"
+                        <button
+                          type="button"
+                          onClick={() => goToRemover(currentFile)}
                           className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg gradient-cyan text-navy font-bold text-sm hover:opacity-90 transition-opacity"
                         >
                           <Zap className="w-3.5 h-3.5" />
                           Remove Metadata Free
-                        </Link>
+                        </button>
                       </div>
+                    </div>
+
+                    <div className="space-y-4 pt-2">
+                      {/* GPS location banner — shown when GPS data found */}
+                      {result.hasGPS && result.gpsLat != null && result.gpsLon != null && gpsMapLinks && (
+                        <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4">
+                          <div className="flex flex-col gap-3">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                              <div className="flex items-center gap-2 text-red-400">
+                                <MapPin className="w-5 h-5 flex-shrink-0" />
+                                <span className="font-bold text-sm">GPS Location Detected</span>
+                              </div>
+                              <div className="flex-1 font-mono text-xs text-foreground bg-red-500/10 px-3 py-1.5 rounded-lg">
+                                {result.gpsLat.toFixed(6)}, {result.gpsLon.toFixed(6)}
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <a
+                                href={gpsMapLinks.apple}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/25 transition-colors"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                Apple Maps
+                              </a>
+                              <a
+                                href={gpsMapLinks.google}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/25 transition-colors"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                Google Maps
+                              </a>
+                              <button
+                                onClick={() => goToRemover(currentFile)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg gradient-cyan text-navy text-xs font-bold hover:opacity-90 transition-opacity"
+                              >
+                                <Zap className="w-3 h-3" />
+                                Remove GPS
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Risk summary */}
+                      <RiskSummary result={result} onRemove={() => goToRemover(currentFile)} />
                     </div>
                   </div>
                 </div>
@@ -944,14 +1319,15 @@ export default function ExifViewer() {
             <p className="text-muted-foreground text-sm mb-6 leading-relaxed">
               BlankAI's free metadata remover strips everything — EXIF, GPS, C2PA, AI pixel fingerprints — in seconds. No account, no upload limits, no watermarks.
             </p>
-            <Link
-              href="/"
+            <button
+              type="button"
+              onClick={() => goToRemover(currentFile)}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl gradient-cyan text-navy font-bold text-sm hover:opacity-90 transition-opacity"
             >
               <Zap className="w-4 h-4" />
               Remove Metadata Free — blankai.app
               <ExternalLink className="w-3.5 h-3.5" />
-            </Link>
+            </button>
           </div>
         </section>
       </main>

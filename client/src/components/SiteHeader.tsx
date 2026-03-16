@@ -203,7 +203,7 @@ export default function SiteHeader({
               </a>
             ) : (
               <Link
-                href="/"
+                href="/#upload"
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg gradient-cyan text-navy font-semibold text-sm hover:opacity-90 transition-opacity"
               >
                 <Zap className="w-3.5 h-3.5" />
@@ -269,7 +269,7 @@ export default function SiteHeader({
               Tools
             </p>
             <Link
-              href="/"
+              href="/#upload"
               onClick={() => setOpen(false)}
               className={`flex items-center justify-between px-3 py-2.5 rounded-lg transition-all text-sm ${
                 isHome
