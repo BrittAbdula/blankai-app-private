@@ -493,6 +493,23 @@ export default function ExifViewer() {
     return () => clearTimeout(t);
   }, []);
 
+  const scrollToResultsArea = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        const resultsSection = document.getElementById("exif-tool");
+        if (!resultsSection) return;
+
+        const stickyHeaderOffset = 80;
+        const nextTop = window.scrollY + resultsSection.getBoundingClientRect().top - stickyHeaderOffset;
+
+        window.scrollTo({
+          top: Math.max(nextTop, 0),
+          behavior: "smooth",
+        });
+      }, 120);
+    });
+  }, []);
+
   const processFile = useCallback(async (file: File) => {
     const isHeic = file.type === "image/heic" || file.type === "image/heif" ||
       /\.(heic|heif)$/i.test(file.name);
@@ -584,17 +601,9 @@ export default function ExifViewer() {
     const pendingId = new URLSearchParams(window.location.search).get("pending");
     const sameTabPending = takePendingExifViewerFile();
 
-    const finalizePendingScroll = () => {
-      setTimeout(() => {
-        document
-          .getElementById("exif-tool")
-          ?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 120);
-    };
-
     if (sameTabPending) {
       void processFile(sameTabPending).then(() => {
-        if (!cancelled) finalizePendingScroll();
+        if (!cancelled) scrollToResultsArea();
       });
       return () => {
         cancelled = true;
@@ -671,7 +680,7 @@ export default function ExifViewer() {
         try {
           window.history.replaceState({}, "", "/exif-viewer");
           await processFile(incomingFile);
-          if (!cancelled) finalizePendingScroll();
+          if (!cancelled) scrollToResultsArea();
           if (channel) {
             channel.postMessage({ pendingId, type: EXIF_TRANSFER_RECEIVED });
             closeTransport();
@@ -735,7 +744,7 @@ export default function ExifViewer() {
     return () => {
       cancelled = true;
     };
-  }, [normalizeTransferredFile, processFile]);
+  }, [normalizeTransferredFile, processFile, scrollToResultsArea]);
 
   const useHeroSample = useCallback(async () => {
     setSampleError(null);
@@ -749,12 +758,13 @@ export default function ExifViewer() {
       }
 
       await processFile(file);
+      scrollToResultsArea();
     } catch {
       setSampleError("Could not load the sample HEIC file.");
     } finally {
       setSampleLoading(false);
     }
-  }, [processFile, sampleFile]);
+  }, [processFile, sampleFile, scrollToResultsArea]);
 
   useEffect(() => {
     if (!result) {
