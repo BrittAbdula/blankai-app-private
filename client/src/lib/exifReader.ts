@@ -347,8 +347,6 @@ export async function extractExif(file: File): Promise<ExifResult> {
     [["BodySerialNumber", "SerialNumber"], "Body Serial", true],
     [["LensSerialNumber"], "Lens Serial", true],
     [["CameraOwnerName", "OwnerName"], "Owner Name", true],
-    [["Artist"], "Artist", true],
-    [["Copyright"], "Copyright"],
   ];
   for (const [keys, label, sensitive] of camMap) {
     const v = get(...keys);
@@ -497,7 +495,7 @@ export async function extractExif(file: File): Promise<ExifResult> {
     [["DateTimeOriginal", "CreateDate"], "Date Taken"],
     [["DateTimeDigitized"], "Date Digitized"],
     [["DateTime", "ModifyDate"], "Date Modified"],
-    [["OffsetTime", "OffsetTimeOriginal"], "UTC Offset"],
+    [["OffsetTime", "OffsetTimeOriginal", "OffsetTimeDigitized"], "UTC Offset"],
     [["SubSecTimeOriginal", "SubSecTime"], "Sub-Second"],
     [["GPSDateStamp"], "GPS Date"],
   ];
@@ -567,15 +565,16 @@ export async function extractExif(file: File): Promise<ExifResult> {
   // ── Group: IPTC / Copyright ───────────────────────────────────────────────
   const iptcFields: MetaField[] = [];
   const iptcMap: [string[], string, boolean?][] = [
-    [["ObjectName"], "Title"],
-    [["Caption", "LocalCaption"], "Caption"],
+    [["XPTitle", "ObjectName"], "Title"],
+    [["ImageDescription", "Caption", "LocalCaption"], "Description"],
+    [["XPComment", "UserComment"], "Note"],
     [["Headline"], "Headline"],
-    [["Keywords"], "Keywords"],
-    [["Byline", "By-line"], "Author", true],
+    [["XPKeywords", "Keywords"], "Keywords"],
+    [["XPAuthor", "Artist", "Byline", "By-line"], "Author", true],
     [["BylineTitle", "By-lineTitle"], "Author Title"],
     [["Credit"], "Credit"],
     [["Source"], "Source"],
-    [["CopyrightNotice"], "Copyright"],
+    [["Copyright", "CopyrightNotice"], "Copyright"],
     [["City"], "City", true],
     [["State", "Province-State"], "State", true],
     [["Country", "Country-PrimaryLocationName"], "Country", true],

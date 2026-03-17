@@ -12,10 +12,15 @@
     "baseUrl": ".",
     "types": ["node", "vite/client"],
     "paths": {
+      "@/*": ["../client/src/*"],
       "@extension/*": ["./src/*"],
       "@blankai-core/*": ["../client/src/*"]
     }
   },
-  "include": ["./src/**/*", "./vite.config.ts", "../client/src/lib/imageProcessor.ts", "../client/src/lib/exifReader.ts"],
+  "include": [
+    "./src/**/*",
+    "./vite.config.ts",
+    "../client/src/lib/exifReader.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

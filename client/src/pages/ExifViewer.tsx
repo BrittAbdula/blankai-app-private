@@ -25,6 +25,18 @@ import { usePageMeta } from "@/hooks/usePageMeta";
 import { extractExif, type ExifResult, type MetaGroup } from "@/lib/exifReader";
 import { createImagePreviewDataUrl, fetchPublicFile } from "@/lib/imagePreview";
 import {
+  buildDisplayMetadataGroups,
+  buildMetadataEditDraft,
+  createBrowserJpegMetadataWriter,
+  normalizeMetadataEditDraft,
+  type DisplayMetaGroup,
+  type EditableFieldDefinition,
+  type MetadataEditDraft,
+  type MetadataEditKey,
+  type MetadataFieldErrors,
+  validateMetadataEditDraft,
+} from "@/lib/metadataEditor";
+import {
   createPendingExifTransferChannel,
   EXIF_TRANSFER_ERROR,
   EXIF_TRANSFER_FILE,
@@ -97,8 +109,36 @@ function buildAppleMapsUrl(lat: number, lon: number) {
 const HERO_SAMPLE_PATH = "/sample.HEIC";
 const HERO_SAMPLE_PREVIEW_PATH = "/sample.jpg";
 
+function downloadDataUrl(dataUrl: string, fileName: string) {
+  const link = document.createElement("a");
+  link.href = dataUrl;
+  link.download = fileName;
+  link.click();
+}
+
+function toReadableError(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  return "Could not save the edited metadata. Please try again.";
+}
+
 // ─── Metadata group panel ─────────────────────────────────────────────────────
-function GroupPanel({ group, isActive }: { group: MetaGroup; isActive: boolean }) {
+function GroupPanel({
+  group,
+  isActive,
+  isEditMode,
+  draft,
+  originalDraft,
+  fieldErrors,
+  onFieldChange,
+}: {
+  group: DisplayMetaGroup;
+  isActive: boolean;
+  isEditMode: boolean;
+  draft: MetadataEditDraft | null;
+  originalDraft: MetadataEditDraft | null;
+  fieldErrors: MetadataFieldErrors;
+  onFieldChange: (key: MetadataEditKey, value: string) => void;
+}) {
   const [open, setOpen] = useState(true);
   const [search, setSearch] = useState("");
 
@@ -108,6 +148,42 @@ function GroupPanel({ group, isActive }: { group: MetaGroup; isActive: boolean }
         f.value.toLowerCase().includes(search.toLowerCase())
       )
     : group.fields;
+
+  const renderEditableField = (definition: EditableFieldDefinition) => {
+    const value = draft?.[definition.key] ?? "";
+    const error = fieldErrors[definition.key];
+    const isDirty = value !== (originalDraft?.[definition.key] ?? "");
+    const sharedClassName = `w-full rounded-lg border px-3 py-2 text-sm text-foreground transition-colors focus:outline-none focus:ring-1 ${
+      error
+        ? "border-red-500/50 bg-red-500/5 focus:border-red-500/60 focus:ring-red-500/20"
+        : isDirty
+          ? "border-emerald-400/45 bg-emerald-500/10 focus:border-emerald-400/55 focus:ring-emerald-400/20"
+          : "border-cyan/35 bg-cyan/10 focus:border-cyan/50 focus:ring-cyan/20"
+    }`;
+
+    if (definition.inputType === "textarea") {
+      return (
+        <textarea
+          value={value}
+          rows={definition.rows ?? 3}
+          placeholder={definition.placeholder}
+          onChange={event => onFieldChange(definition.key, event.target.value)}
+          className={`${sharedClassName} resize-y min-h-24`}
+        />
+      );
+    }
+
+    return (
+      <input
+        type={definition.inputType}
+        value={value}
+        step={definition.step}
+        placeholder={definition.placeholder}
+        onChange={event => onFieldChange(definition.key, event.target.value)}
+        className={sharedClassName}
+      />
+    );
+  };
 
   return (
     <div
@@ -140,7 +216,7 @@ function GroupPanel({ group, isActive }: { group: MetaGroup; isActive: boolean }
       {open && (
         <div className="px-4 pb-4">
           {/* Search within group (only if many fields) */}
-          {group.fields.length > 6 && (
+          {group.fields.length > 6 && group.id !== "gps" && (
             <div className="relative mb-3">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <input
@@ -163,20 +239,52 @@ function GroupPanel({ group, isActive }: { group: MetaGroup; isActive: boolean }
           ) : (
             <div className="divide-y divide-border/30">
               {filtered.map((field) => (
-                <div key={field.key} className="group flex items-start gap-3 py-2.5">
+                <div
+                  key={field.key}
+                  className={`group flex items-start gap-3 rounded-lg px-2 py-2.5 transition-colors ${
+                    isEditMode && field.editableDefinition
+                      ? draft?.[field.editableDefinition.key] !== (originalDraft?.[field.editableDefinition.key] ?? "")
+                        ? "bg-emerald-500/5"
+                        : "bg-cyan/5"
+                      : ""
+                  }`}
+                >
                   <div className="flex-shrink-0 w-36 sm:w-44">
-                    <span className="text-xs text-muted-foreground font-medium leading-relaxed">
-                      {field.label}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className={`text-xs font-medium leading-relaxed ${
+                        isEditMode && field.editableDefinition
+                          ? draft?.[field.editableDefinition.key] !== (originalDraft?.[field.editableDefinition.key] ?? "")
+                            ? "text-emerald-300"
+                            : "text-cyan-200"
+                          : "text-muted-foreground"
+                      }`}>
+                        {field.label}
+                      </span>
                       {field.sensitive && (
-                        <span className="ml-1 text-[9px] text-red-400 font-bold">●</span>
+                        <span className="text-[9px] text-red-400 font-bold">●</span>
                       )}
                       {field.aiRelated && (
-                        <span className="ml-1 text-[9px] text-cyan font-bold">AI</span>
+                        <span className="text-[9px] text-cyan font-bold">AI</span>
                       )}
-                    </span>
+                      {isEditMode && field.editableDefinition && draft?.[field.editableDefinition.key] === (originalDraft?.[field.editableDefinition.key] ?? "") && (
+                        <span className="rounded-full border border-cyan/20 bg-cyan/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-cyan/85">
+                          Editable
+                        </span>
+                      )}
+                      {isEditMode && field.editableDefinition && draft?.[field.editableDefinition.key] !== (originalDraft?.[field.editableDefinition.key] ?? "") && (
+                        <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-emerald-300">
+                          Edited
+                        </span>
+                      )}
+                      {isEditMode && !field.editableDefinition && (
+                        <span className="rounded-full border border-border/50 bg-muted/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
+                          Read-only
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex-1 min-w-0 flex items-start gap-1">
-                    {(field.key === 'maps_link_google' || field.key === 'maps_link_apple') ? (
+                    {(field.key === "maps_link_google" || field.key === "maps_link_apple") ? (
                       <a
                         href={field.value}
                         target="_blank"
@@ -185,15 +293,30 @@ function GroupPanel({ group, isActive }: { group: MetaGroup; isActive: boolean }
                         onClick={e => e.stopPropagation()}
                       >
                         <MapPin className="w-3 h-3 flex-shrink-0" />
-                        {field.key === 'maps_link_apple' ? 'Open in Apple Maps' : 'Open in Google Maps'}
+                        {field.key === "maps_link_apple" ? "Open in Apple Maps" : "Open in Google Maps"}
                         <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
                       </a>
+                    ) : isEditMode && field.editableDefinition ? (
+                      <div className="w-full space-y-1.5">
+                        {renderEditableField(field.editableDefinition)}
+                        {(fieldErrors[field.editableDefinition.key] || field.editableDefinition.helperText) && (
+                          <p className={`text-[11px] leading-relaxed ${
+                            fieldErrors[field.editableDefinition.key]
+                              ? "text-red-400"
+                              : "text-muted-foreground/80"
+                          }`}>
+                            {fieldErrors[field.editableDefinition.key] ?? field.editableDefinition.helperText}
+                          </p>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-xs text-foreground break-all leading-relaxed font-mono-custom">
                         {field.value}
                       </span>
                     )}
-                    {!['maps_link_google', 'maps_link_apple'].includes(field.key) && <CopyBtn text={field.value} />}
+                    {!isEditMode && !["maps_link_google", "maps_link_apple"].includes(field.key) && (
+                      <CopyBtn text={field.value} />
+                    )}
                   </div>
                 </div>
               ))}
@@ -260,11 +383,11 @@ function RiskSummary({ result, onRemove }: { result: ExifResult; onRemove?: () =
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function ExifViewer() {
   usePageMeta({
-    title: "EXIF Viewer — Read Image Metadata Online Free | BlankAI",
-    description: "Free online EXIF viewer. Instantly read GPS, camera, AI generation metadata from any image. No upload needed — 100% browser-based.",
+    title: "EXIF Viewer — Read & Edit Image Metadata Online Free | BlankAI",
+    description: "Free online EXIF viewer and editor. Read GPS, camera, AI generation metadata and save common metadata changes as a new JPEG copy. 100% browser-based.",
     canonical: "https://blankai.app/exif-viewer",
-    ogTitle: "EXIF Viewer — Read Image Metadata Online Free | BlankAI",
-    ogDescription: "Instantly read GPS, camera, AI generation metadata from any image. Free, browser-based, no server upload.",
+    ogTitle: "EXIF Viewer — Read & Edit Image Metadata Online Free | BlankAI",
+    ogDescription: "Read GPS, camera, AI generation metadata and save edited common metadata as a new JPEG copy. Free, browser-based, no server upload.",
   });
 
   // Add structured data for this tool page
@@ -279,12 +402,14 @@ export default function ExifViewer() {
           "@type": "WebApplication",
           "name": "BlankAI EXIF Viewer",
           "url": "https://blankai.app/exif-viewer",
-          "description": "Free browser-based EXIF metadata viewer. Read GPS, camera settings, AI generation data, IPTC, XMP and more from any image file.",
+          "description": "Free browser-based EXIF metadata viewer and editor. Read GPS, camera settings, AI generation data, IPTC, XMP and save common metadata edits as a new JPEG copy.",
           "applicationCategory": "UtilitiesApplication",
           "operatingSystem": "Any",
           "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
           "featureList": [
             "Read EXIF metadata from JPEG, PNG, WebP, HEIC",
+            "Edit common metadata fields in the browser",
+            "Save a new JPEG copy with updated metadata",
             "GPS coordinates extraction",
             "AI generation metadata detection",
             "Camera settings viewer",
@@ -300,6 +425,11 @@ export default function ExifViewer() {
               "@type": "Question",
               "name": "What is EXIF data?",
               "acceptedAnswer": { "@type": "Answer", "text": "EXIF (Exchangeable Image File Format) data is metadata embedded in image files by cameras and editing software. It can include GPS location, camera model, lens settings, date/time, and even AI generation parameters." }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I edit the metadata and save a new file?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Yes. BlankAI can edit common metadata fields like title, author, copyright, date/time, camera details, and GPS coordinates, then save the result as a new JPEG copy. Your original file stays unchanged." }
             },
             {
               "@type": "Question",
@@ -336,8 +466,17 @@ export default function ExifViewer() {
   const [sampleLoading, setSampleLoading] = useState(false);
   const [sampleError, setSampleError] = useState<string | null>(null);
   const [pendingTransfer, setPendingTransfer] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editDraft, setEditDraft] = useState<MetadataEditDraft | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<MetadataFieldErrors>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  const [isSavingMetadata, setIsSavingMetadata] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const resultToolbarRef = useRef<HTMLDivElement>(null);
+  const mobileCategoryShellRef = useRef<HTMLDivElement>(null);
   const mobileCategoryNavRef = useRef<HTMLDivElement>(null);
+  const [resultToolbarHeight, setResultToolbarHeight] = useState(0);
   const [, navigate] = useLocation();
 
   // Navigate to home with current file pre-loaded into the metadata remover
@@ -366,6 +505,11 @@ export default function ExifViewer() {
     }
     setLoading(true);
     setError(null);
+    setSaveError(null);
+    setSaveSuccess(null);
+    setFieldErrors({});
+    setIsEditMode(false);
+    setEditDraft(null);
     setResult(null);
     setCurrentFile(file);
     setPreviewUrl(null);
@@ -612,6 +756,21 @@ export default function ExifViewer() {
     }
   }, [processFile, sampleFile]);
 
+  useEffect(() => {
+    if (!result) {
+      setEditDraft(null);
+      setFieldErrors({});
+      setSaveError(null);
+      setIsEditMode(false);
+      return;
+    }
+
+    setEditDraft(buildMetadataEditDraft(result));
+    setFieldErrors({});
+    setSaveError(null);
+    setIsEditMode(false);
+  }, [result]);
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
@@ -631,6 +790,11 @@ export default function ExifViewer() {
     setLoading(false);
     setCurrentFile(null);
     setPreviewUrl(null);
+    setEditDraft(null);
+    setFieldErrors({});
+    setSaveError(null);
+    setSaveSuccess(null);
+    setIsEditMode(false);
   };
 
   // Export helpers
@@ -664,14 +828,101 @@ export default function ExifViewer() {
     URL.revokeObjectURL(url);
   };
 
+  const displayGroups = useMemo(() => {
+    if (!result) return [];
+    if (!editDraft) return result.groups;
+    return buildDisplayMetadataGroups(result, editDraft, isEditMode);
+  }, [editDraft, isEditMode, result]);
+
+  const originalEditDraft = useMemo(
+    () => (result ? buildMetadataEditDraft(result) : null),
+    [result],
+  );
+
+  const hasScreenshotNote = useMemo(
+    () => displayGroups
+      .find(group => group.id === "file")
+      ?.fields.some(field => field.key === "_screenshot_note") ?? false,
+    [displayGroups],
+  );
+
+  const enterEditMode = useCallback(() => {
+    if (!result) return;
+    setEditDraft(buildMetadataEditDraft(result));
+    setFieldErrors({});
+    setSaveError(null);
+    setSaveSuccess(null);
+    setIsEditMode(true);
+  }, [result]);
+
+  const resetEditDraft = useCallback(() => {
+    if (!result) return;
+    setEditDraft(buildMetadataEditDraft(result));
+    setFieldErrors({});
+    setSaveError(null);
+  }, [result]);
+
+  const cancelEditMode = useCallback(() => {
+    if (!result) return;
+    setEditDraft(buildMetadataEditDraft(result));
+    setFieldErrors({});
+    setSaveError(null);
+    setIsEditMode(false);
+  }, [result]);
+
+  const handleFieldChange = useCallback((key: MetadataEditKey, value: string) => {
+    setEditDraft(current => current ? { ...current, [key]: value } : current);
+    setFieldErrors(current => {
+      if (!current[key]) return current;
+      return { ...current, [key]: undefined };
+    });
+    setSaveError(null);
+  }, []);
+
+  const handleSaveEditedMetadata = useCallback(async () => {
+    if (!currentFile || !editDraft) return;
+
+    const normalizedDraft = normalizeMetadataEditDraft(editDraft);
+    const validationErrors = validateMetadataEditDraft(normalizedDraft);
+    setFieldErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setSaveError("Check the highlighted fields before saving a new JPEG.");
+      return;
+    }
+
+    setIsSavingMetadata(true);
+    setSaveError(null);
+    setSaveSuccess(null);
+
+    try {
+      const writer = createBrowserJpegMetadataWriter();
+      const editedResult = await writer.write({
+        draft: normalizedDraft,
+        file: currentFile,
+      });
+
+      downloadDataUrl(editedResult.dataUrl, editedResult.file.name);
+      await processFile(editedResult.file);
+      setSaveSuccess("Saved a new JPEG copy and reloaded it so you can verify the updated metadata.");
+    } catch (saveMetadataError) {
+      console.error(saveMetadataError);
+      setSaveError(toReadableError(saveMetadataError));
+    } finally {
+      setIsSavingMetadata(false);
+    }
+  }, [currentFile, editDraft, processFile]);
+
   const scrollToGroup = (id: string) => {
     setActiveGroup(id);
     const group = document.getElementById(`group-${id}`);
     if (!group) return;
 
     const isDesktop = window.innerWidth >= 1024;
-    const mobileNavBottom = mobileCategoryNavRef.current?.getBoundingClientRect().bottom ?? 120;
-    const offset = isDesktop ? 96 : mobileNavBottom + 16;
+    const stickyHeaderHeight = 64;
+    const toolbarOffset = stickyHeaderHeight + resultToolbarHeight;
+    const mobileNavHeight = mobileCategoryShellRef.current?.getBoundingClientRect().height ?? 0;
+    const offset = isDesktop ? toolbarOffset + 24 : toolbarOffset + mobileNavHeight + 24;
     const nextTop = window.scrollY + group.getBoundingClientRect().top - offset;
 
     window.scrollTo({
@@ -681,9 +932,9 @@ export default function ExifViewer() {
   };
 
   useEffect(() => {
-    if (!result) return;
+    if (displayGroups.length === 0) return;
 
-    const groups = result.groups
+    const groups = displayGroups
       .map(group => ({
         id: group.id,
         element: document.getElementById(`group-${group.id}`),
@@ -710,7 +961,13 @@ export default function ExifViewer() {
 
     groups.forEach(({ element }) => observer.observe(element));
     return () => observer.disconnect();
-  }, [result]);
+  }, [displayGroups]);
+
+  useEffect(() => {
+    if (displayGroups.length === 0) return;
+    if (displayGroups.some(group => group.id === activeGroup)) return;
+    setActiveGroup(displayGroups[0]?.id ?? "file");
+  }, [activeGroup, displayGroups]);
 
   useEffect(() => {
     const activeButton = mobileCategoryNavRef.current?.querySelector<HTMLButtonElement>(
@@ -718,6 +975,34 @@ export default function ExifViewer() {
     );
     activeButton?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }, [activeGroup]);
+
+  useEffect(() => {
+    const node = resultToolbarRef.current;
+    if (!node) {
+      setResultToolbarHeight(0);
+      return;
+    }
+
+    const updateHeight = () => {
+      setResultToolbarHeight(node.getBoundingClientRect().height);
+    };
+
+    updateHeight();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateHeight);
+      return () => window.removeEventListener("resize", updateHeight);
+    }
+
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(node);
+    window.addEventListener("resize", updateHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateHeight);
+    };
+  }, [result, isEditMode, saveError, saveSuccess]);
 
   const gpsMapLinks = useMemo(() => {
     if (!result?.hasGPS || result.gpsLat == null || result.gpsLon == null) {
@@ -782,22 +1067,22 @@ export default function ExifViewer() {
                 {/* Tool badge */}
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan/30 bg-cyan/5 text-cyan text-xs font-semibold mb-4">
                   <Eye className="w-3.5 h-3.5" />
-                  Free Online Tool · No Upload Required
+                  Free Online Tool · Read + Edit Common Metadata
                 </div>
 
                 <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4 leading-tight">
                   EXIF Viewer —{" "}
-                  <span className="text-cyan">Read Image Metadata</span>{" "}
+                  <span className="text-cyan">Read & Edit Metadata</span>{" "}
                   Instantly
                 </h1>
                 <p className="text-muted-foreground text-base sm:text-lg leading-relaxed max-w-2xl">
                   Inspect <strong className="text-foreground">GPS coordinates, camera settings, AI generation data, C2PA manifests,
-                  IPTC copyright</strong> and 100+ metadata fields from any image. 100% browser-based — your files never leave your device.
+                  IPTC copyright</strong> and 100+ metadata fields from any image, then save supported changes as a new JPEG copy. 100% browser-based — your files never leave your device.
                 </p>
 
                 {/* Feature pills */}
                 <div className="flex flex-wrap gap-2 mt-5">
-                  {["JPEG / PNG / WebP", "HEIC / TIFF / RAW", "GPS Coordinates", "AI Metadata Detection", "C2PA / XMP / IPTC", "Export JSON & CSV"].map(tag => (
+                  {["JPEG / PNG / WebP", "HEIC / TIFF / RAW", "Edit Title / GPS / Copyright", "Save New JPEG Copy", "C2PA / XMP / IPTC", "Export JSON & CSV"].map(tag => (
                     <span key={tag} className="px-2.5 py-1 rounded-full bg-muted/40 border border-border/50 text-xs text-muted-foreground">
                       {tag}
                     </span>
@@ -838,7 +1123,7 @@ export default function ExifViewer() {
 
                 <div className="mt-3 flex items-start justify-between gap-4">
                   <p className="text-xs leading-relaxed text-muted-foreground">
-                    Load the bundled iPhone HEIC sample and immediately test GPS, camera metadata, and HEIC preview support.
+                    Load the bundled iPhone HEIC sample and immediately test GPS, camera metadata, HEIC preview support, and the new metadata editor flow.
                   </p>
                   <span className="shrink-0 text-xs font-semibold text-cyan transition-transform duration-300 group-hover:translate-x-0.5">
                     Open sample
@@ -952,58 +1237,101 @@ export default function ExifViewer() {
               /* Results layout */
               <div className="space-y-6" style={{ animation: "fadeInUp 0.4s ease-out" }}>
                 {/* Top bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    {/* Thumbnail preview */}
-                    {previewUrl && (
-                      <div className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-border/50 bg-muted/30">
-                        <ImagePreview
-                          src={previewUrl}
-                          alt={result.fileName}
-                          showExifAction={false}
-                          className="h-full w-full"
-                          imgClassName="object-cover"
-                          fallbackLabel="No preview"
-                        />
+                <div
+                  ref={resultToolbarRef}
+                  className="sticky top-16 z-30 rounded-2xl border border-border/40 bg-background/90 px-4 py-3 backdrop-blur-md shadow-[0_18px_48px_rgba(4,10,20,0.22)]"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* Thumbnail preview */}
+                      {previewUrl && (
+                        <div className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-border/50 bg-muted/30">
+                          <ImagePreview
+                            src={previewUrl}
+                            alt={result.fileName}
+                            showExifAction={false}
+                            className="h-full w-full"
+                            imgClassName="object-cover"
+                            fallbackLabel="No preview"
+                          />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <h2 className="truncate font-display font-bold text-lg text-foreground">
+                          {result.fileName}
+                        </h2>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          {result.width && result.height ? `${result.width} × ${result.height} px · ` : ""}
+                          {(result.fileSize / 1024).toFixed(1)} KB · {result.fileType}
+                        </p>
                       </div>
-                    )}
-                    <div>
-                      <h2 className="font-display font-bold text-lg text-foreground">
-                        {result.fileName}
-                      </h2>
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        {result.width && result.height ? `${result.width} × ${result.height} px · ` : ""}
-                        {(result.fileSize / 1024).toFixed(1)} KB · {result.fileType}
-                      </p>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      onClick={exportJSON}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:border-cyan/40 transition-all"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      Export JSON
-                    </button>
-                    <button
-                      onClick={exportCSV}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:border-cyan/40 transition-all"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      Export CSV
-                    </button>
-                    <button
-                      onClick={reset}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:border-border transition-all"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      New File
-                    </button>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {isEditMode ? (
+                        <>
+                          <button
+                            onClick={handleSaveEditedMetadata}
+                            disabled={isSavingMetadata || !editDraft}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg gradient-cyan text-navy text-xs font-bold transition-opacity disabled:cursor-wait disabled:opacity-70"
+                          >
+                            <Download className={`w-3.5 h-3.5 ${isSavingMetadata ? "animate-pulse" : ""}`} />
+                            {isSavingMetadata ? "Saving…" : "Save New JPEG"}
+                          </button>
+                          <button
+                            onClick={resetEditDraft}
+                            disabled={isSavingMetadata}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:border-cyan/40 transition-all disabled:opacity-60"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            Reset Changes
+                          </button>
+                          <button
+                            onClick={cancelEditMode}
+                            disabled={isSavingMetadata}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:border-border transition-all disabled:opacity-60"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            Cancel Edit
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={enterEditMode}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan/30 bg-cyan/10 text-xs text-cyan hover:bg-cyan/15 hover:border-cyan/40 transition-all"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            Edit Metadata
+                          </button>
+                          <button
+                            onClick={exportJSON}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:border-cyan/40 transition-all"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            Export JSON
+                          </button>
+                          <button
+                            onClick={exportCSV}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:border-cyan/40 transition-all"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            Export CSV
+                          </button>
+                          <button
+                            onClick={reset}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:border-border transition-all"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            New File
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 {/* Screenshot warning banner */}
-                {result.groups[0]?.fields.some(f => f.key === "_screenshot_note") && (
+                {hasScreenshotNote && (
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 flex gap-3">
                     <span className="text-amber-400 text-lg flex-shrink-0">📱</span>
                     <div>
@@ -1017,10 +1345,42 @@ export default function ExifViewer() {
                   </div>
                 )}
 
+                {isEditMode && (
+                  <div className="rounded-xl border border-cyan/30 bg-cyan/5 p-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-cyan">Editing common metadata only</p>
+                        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                          Save exports a new JPEG copy with the editable fields below. Your original file stays unchanged, and unsupported metadata remains read-only.
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-cyan/20 bg-cyan/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan">
+                        JPEG copy export
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {saveError && (
+                  <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-300">
+                    {saveError}
+                  </div>
+                )}
+
+                {saveSuccess && (
+                  <div className="rounded-xl border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-300">
+                    {saveSuccess}
+                  </div>
+                )}
+
                 {/* Main layout: sidebar + content */}
                 <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
                   {/* Category nav (mobile / tablet) */}
-                  <div className="w-full lg:hidden sticky top-16 z-20 -mx-4 px-4 pb-2 pt-1">
+                  <div
+                    ref={mobileCategoryShellRef}
+                    className="w-full lg:hidden sticky z-20 -mx-4 px-4 pb-2 pt-1"
+                    style={{ top: `${64 + resultToolbarHeight + 8}px` }}
+                  >
                     <div className="rounded-2xl border border-border/40 bg-background/85 backdrop-blur-md shadow-[0_10px_40px_rgba(4,10,20,0.28)]">
                       <div className="flex items-center justify-between px-4 pt-3">
                         <p className="text-[10px] font-mono-custom text-muted-foreground/60 uppercase tracking-[0.2em]">
@@ -1034,7 +1394,7 @@ export default function ExifViewer() {
                         ref={mobileCategoryNavRef}
                         className="flex gap-2 overflow-x-auto px-3 pb-3 pt-2 scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] snap-x snap-mandatory"
                       >
-                        {result.groups.map(group => (
+                        {displayGroups.map(group => (
                           <button
                             key={group.id}
                             data-group-nav={group.id}
@@ -1064,10 +1424,13 @@ export default function ExifViewer() {
                   </div>
 
                   {/* Sidebar category nav (desktop) */}
-                  <aside className="hidden lg:block w-52 flex-shrink-0 sticky top-20">
+                  <aside
+                    className="hidden lg:block w-52 flex-shrink-0 sticky"
+                    style={{ top: `${64 + resultToolbarHeight + 24}px` }}
+                  >
                     <p className="text-[10px] font-mono-custom text-muted-foreground/50 uppercase tracking-wider px-2 mb-2">Categories</p>
                     <nav className="space-y-0.5">
-                      {result.groups.map(group => (
+                      {displayGroups.map(group => (
                         <button
                           key={group.id}
                           data-group-nav={group.id}
@@ -1100,11 +1463,16 @@ export default function ExifViewer() {
 
                   {/* Metadata groups */}
                   <div className="w-full flex-1 min-w-0 space-y-3">
-                    {result.groups.map(group => (
+                    {displayGroups.map(group => (
                       <GroupPanel
                         key={group.id}
                         group={group}
                         isActive={activeGroup === group.id}
+                        isEditMode={isEditMode}
+                        draft={editDraft}
+                        originalDraft={originalEditDraft}
+                        fieldErrors={fieldErrors}
+                        onFieldChange={handleFieldChange}
                       />
                     ))}
 
@@ -1193,7 +1561,7 @@ export default function ExifViewer() {
               {[
                 { href: "/", label: "AI Metadata Remover", icon: <Zap className="w-3.5 h-3.5" />, desc: "Strip all metadata" },
                 { href: "/image-diff", label: "Image Diff Tool", icon: <Eye className="w-3.5 h-3.5" />, desc: "Compare images" },
-                { href: "/exif-viewer", label: "EXIF Viewer", icon: <Search className="w-3.5 h-3.5" />, desc: "Read metadata", active: true },
+                { href: "/exif-viewer", label: "EXIF Viewer", icon: <Search className="w-3.5 h-3.5" />, desc: "Read + edit metadata", active: true },
               ].map(tool => (
                 <Link
                   key={tool.href}
@@ -1231,13 +1599,16 @@ export default function ExifViewer() {
                   Modern AI image generators add their own metadata layer: Stable Diffusion writes the full prompt, seed, and model name into PNG text chunks. Midjourney embeds job IDs. Adobe Firefly and C2PA-compliant tools embed cryptographic manifests that prove AI origin.
                 </p>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  BlankAI's EXIF Viewer lets you inspect all of this data before deciding whether to share an image publicly.
+                  BlankAI's EXIF Viewer lets you inspect all of this data, edit the most useful common fields, and export a new JPEG copy before deciding whether to share an image publicly.
                 </p>
               </div>
               <div>
                 <h2 className="font-display font-bold text-xl text-foreground mb-4">
-                  What Metadata Can BlankAI Read?
+                  What Metadata Can BlankAI Read And Edit?
                 </h2>
+                <p className="mb-4 text-sm text-muted-foreground leading-relaxed">
+                  BlankAI reads a broad range of EXIF, IPTC, XMP, AI, and technical metadata. Common scalar fields like title, author, copyright, date/time, camera details, and GPS coordinates can also be edited and saved into a new JPEG copy. Complex provenance blocks remain read-only.
+                </p>
                 <div className="space-y-2">
                   {[
                     { label: "GPS & Location", desc: "Latitude, longitude, altitude, speed, direction", risk: "high" },
@@ -1280,6 +1651,10 @@ export default function ExifViewer() {
                   a: "No. BlankAI EXIF Viewer runs entirely in your browser using JavaScript. Your image never leaves your device. All metadata extraction is performed locally — there is no server-side processing."
                 },
                 {
+                  q: "Can I edit the metadata and save a new file?",
+                  a: "Yes. BlankAI can edit common metadata such as title, description, author, copyright, camera make/model, date/time, and GPS coordinates. When you save, BlankAI exports a new JPEG copy with those updated fields. Your original file stays unchanged."
+                },
+                {
                   q: "Can it detect AI-generated image metadata?",
                   a: "Yes. BlankAI detects C2PA cryptographic manifests, Stable Diffusion PNG text chunks (prompt, negative prompt, seed, model, sampler, CFG scale), Midjourney job IDs, Adobe Firefly tags, DALL-E generation IDs, and AI-related XMP fields."
                 },
@@ -1297,7 +1672,7 @@ export default function ExifViewer() {
                 },
                 {
                   q: "Can I export the metadata?",
-                  a: "Yes. After reading the metadata, you can export it as a JSON file (machine-readable, includes all raw values) or a CSV file (spreadsheet-friendly, organized by category and field name)."
+                  a: "Yes. After reading the metadata, you can export it as a JSON file (machine-readable, includes all raw values) or a CSV file (spreadsheet-friendly, organized by category and field name). If you edit common fields, you can also save a new JPEG copy with the updated metadata."
                 },
               ].map((item, i) => (
                 <FaqItem key={i} q={item.q} a={item.a} />

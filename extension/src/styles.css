@@ -29,26 +29,26 @@
 
 :root {
   --radius: 0.875rem;
-  --background: #f7f8fc;
-  --foreground: #1f2937;
-  --card: #ffffff;
-  --card-foreground: #1f2937;
-  --popover: #ffffff;
-  --popover-foreground: #1f2937;
-  --primary: #5b5ceb;
-  --primary-foreground: #ffffff;
-  --secondary: #eef1fb;
-  --secondary-foreground: #2f3b54;
-  --muted: #f3f4f6;
-  --muted-foreground: #6b7280;
-  --accent: #eef1fb;
-  --accent-foreground: #1f2937;
-  --destructive: #dc2626;
+  --background: #0a0f1e;
+  --foreground: #edf6ff;
+  --card: rgba(13, 20, 38, 0.92);
+  --card-foreground: #edf6ff;
+  --popover: rgba(15, 22, 40, 0.96);
+  --popover-foreground: #edf6ff;
+  --primary: #00d4ff;
+  --primary-foreground: #0a0f1e;
+  --secondary: rgba(17, 27, 48, 0.92);
+  --secondary-foreground: #b9c9e8;
+  --muted: rgba(16, 24, 44, 0.84);
+  --muted-foreground: #7c91b4;
+  --accent: rgba(18, 28, 52, 0.95);
+  --accent-foreground: #edf6ff;
+  --destructive: #ff6b7a;
   --destructive-foreground: #ffffff;
-  --border: #e5e7eb;
-  --input: #ffffff;
-  --ring: rgb(91 92 235 / 0.28);
-  --primary-solid: #5b5ceb;
+  --border: rgba(0, 212, 255, 0.12);
+  --input: rgba(11, 17, 32, 0.96);
+  --ring: rgb(0 212 255 / 0.22);
+  --primary-solid: #00d4ff;
 }
 
 @layer base {
@@ -66,6 +66,7 @@
 
   body {
     @apply bg-background text-foreground;
+    background: #0a0f1e;
     font-family: Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -77,7 +78,7 @@
   h4,
   h5,
   h6 {
-    font-family: Manrope, Inter, "Segoe UI", system-ui, sans-serif;
+    font-family: "Space Grotesk", Inter, "Segoe UI", system-ui, sans-serif;
     font-weight: 700;
     letter-spacing: -0.02em;
     margin: 0;
@@ -104,7 +105,30 @@
 
 @layer components {
   .font-display {
-    font-family: Manrope, Inter, "Segoe UI", system-ui, sans-serif;
+    font-family: "Space Grotesk", Inter, "Segoe UI", system-ui, sans-serif;
+  }
+
+  .text-cyan {
+    color: #00d4ff;
+  }
+
+  .gradient-cyan {
+    background: linear-gradient(135deg, #00d4ff 0%, #2aa4ff 100%);
+  }
+
+  .glow-cyan {
+    box-shadow:
+      0 0 0 1px rgba(0, 212, 255, 0.14),
+      0 22px 44px rgba(0, 0, 0, 0.35),
+      0 0 34px rgba(0, 212, 255, 0.08);
+  }
+
+  .brand-shell {
+    background: #0f162a;
+  }
+
+  .brand-grid {
+    background: #0a0f1e;
   }
 }
 

@@ -8,6 +8,21 @@ export interface DiffResult {
   totalPixels: number;
 }
 
+export async function sha256ShortFromDataUrl(dataUrl: string): Promise<string> {
+  const base64 = dataUrl.split(",")[1];
+  if (!base64) return "—";
+
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  const hashBuffer = await crypto.subtle.digest("SHA-256", bytes.buffer);
+  const hashArray = new Uint8Array(hashBuffer);
+  return Array.from(hashArray, (value) => value.toString(16).padStart(2, "0")).join("").slice(0, 32);
+}
+
 export async function readFileAsDataUrl(file: File): Promise<string> {
   return await new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -24,6 +39,14 @@ async function loadImageFromDataUrl(dataUrl: string): Promise<HTMLImageElement> 
     image.onerror = () => reject(new Error("Failed to load image."));
     image.src = dataUrl;
   });
+}
+
+export async function getImageDimensions(dataUrl: string): Promise<{ height: number; width: number }> {
+  const image = await loadImageFromDataUrl(dataUrl);
+  return {
+    height: image.naturalHeight,
+    width: image.naturalWidth,
+  };
 }
 
 export async function computeDiff(dataUrlA: string, dataUrlB: string, tolerance: number): Promise<DiffResult> {
