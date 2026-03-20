@@ -15,6 +15,7 @@ import WaitlistSection from "@/components/WaitlistSection";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import ImagePreview from "@/components/ImagePreview";
+import MetadataViewerPanel from "@/components/MetadataViewerPanel";
 import {
   Shield,
   Zap,
@@ -45,6 +46,7 @@ import {
   AlertCircle,
   Share2,
   Archive,
+  ExternalLink,
 } from "lucide-react";
 import {
   processImages,
@@ -52,6 +54,7 @@ import {
   formatCount,
   type ProcessedImageResult,
 } from "@/lib/imageProcessor";
+import { extractExif, type ExifResult } from "@/lib/exifReader";
 import {
   createImagePreviewDataUrl,
   fetchPublicFile,
@@ -67,6 +70,8 @@ const HOME_SAMPLE_PATH = "/sample.HEIC";
 const HOME_SAMPLE_PREVIEW_PATH = "/sample.jpg";
 const HOME_PENDING_UPLOAD_EVENT = "blankai-home-pending-upload";
 const HOME_UPLOAD_HASH = "#upload";
+const BLANKAI_EXTENSION_URL =
+  "https://chromewebstore.google.com/detail/blankai/bkodmfkejebfejdiochiihcmddbldipd?authuser=0&hl=en";
 
 function scrollToUploadSection(behavior: ScrollBehavior = "smooth") {
   const uploadSection = document.getElementById("upload");
@@ -791,6 +796,13 @@ function UploadZone() {
   const [results, setResults] = useState<ProcessedImageResult[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [processingStep, setProcessingStep] = useState(0);
+  const [singleFileMetadata, setSingleFileMetadata] = useState<ExifResult | null>(
+    null,
+  );
+  const [singleFileMetadataLoading, setSingleFileMetadataLoading] = useState(false);
+  const [singleFileMetadataError, setSingleFileMetadataError] = useState<string | null>(
+    null,
+  );
   const inputRef = useRef<HTMLInputElement>(null);
 
   const processingSteps = [
@@ -808,6 +820,42 @@ function UploadZone() {
     }, 900);
     return () => clearInterval(interval);
   }, [stage]);
+
+  useEffect(() => {
+    if (stage !== "staged" || files.length !== 1) {
+      setSingleFileMetadata(null);
+      setSingleFileMetadataLoading(false);
+      setSingleFileMetadataError(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    setSingleFileMetadata(null);
+    setSingleFileMetadataLoading(true);
+    setSingleFileMetadataError(null);
+
+    void extractExif(files[0])
+      .then(result => {
+        if (cancelled) return;
+        setSingleFileMetadata(result);
+      })
+      .catch(error => {
+        console.error(error);
+        if (cancelled) return;
+        setSingleFileMetadataError(
+          "Could not inspect this file's metadata preview. You can still remove metadata safely.",
+        );
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setSingleFileMetadataLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [files, stage]);
 
   const generatePreviews = (selectedFiles: File[]): Promise<string[]> => {
     return Promise.all(selectedFiles.map((file) => createImagePreviewDataUrl(file, file.name)));
@@ -904,6 +952,9 @@ function UploadZone() {
     setFilePreviews([]);
     setResults([]);
     setErrorMsg(null);
+    setSingleFileMetadata(null);
+    setSingleFileMetadataLoading(false);
+    setSingleFileMetadataError(null);
     setProgress({ current: 0, total: 0 });
     // Clear file input so same files can be re-selected
     if (inputRef.current) inputRef.current.value = "";
@@ -1055,102 +1106,138 @@ function UploadZone() {
       {/* STAGE: STAGED — Preview + Start Button */}
       {/* ──────────────────────────────────────────────────────────────────────────────────────────────────── */}
       {stage === "staged" && !isPreparingFiles && (
-        <div
-          className="border border-border rounded-xl overflow-hidden bg-card"
-          style={{ animation: "fadeInUp 0.35s ease" }}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-cyan/10 border border-cyan/20 flex items-center justify-center">
-                <Image className="w-3.5 h-3.5 text-cyan" />
+        <div className="space-y-4">
+          <div
+            className="border border-border rounded-xl overflow-hidden bg-card"
+            style={{ animation: "fadeInUp 0.35s ease" }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-cyan/10 border border-cyan/20 flex items-center justify-center">
+                  <Image className="w-3.5 h-3.5 text-cyan" />
+                </div>
+                <span className="font-display font-semibold text-foreground text-sm">
+                  {files.length} image{files.length > 1 ? "s" : ""} ready
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  — review before processing
+                </span>
               </div>
-              <span className="font-display font-semibold text-foreground text-sm">
-                {files.length} image{files.length > 1 ? "s" : ""} ready
-              </span>
-              <span className="text-muted-foreground text-xs">
-                — review before processing
-              </span>
+              <button
+                onClick={reset}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Clear all"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <button
-              onClick={reset}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Clear all"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
 
-          {/* Thumbnail grid */}
-          <div className="p-4">
-            <div className="grid grid-cols-2 gap-3">
-              {filePreviews.map((src, i) => (
-                <div
-                  key={i}
-                  className="relative group aspect-square rounded-lg overflow-hidden border border-border bg-muted/30"
-                  style={{
-                    animation: `scaleIn 0.25s cubic-bezier(0.175,0.885,0.32,1.275) ${i * 0.04}s both`,
-                  }}
-                >
-                  <ImagePreview
-                    src={src}
-                    alt={files[i]?.name ?? "Selected image preview"}
-                    file={files[i] ?? null}
-                    actionPlacement="bottom-right"
-                    actionVariant="compact"
-                    className="h-full w-full"
-                    imgClassName="object-cover"
-                    fallbackLabel="No preview"
-                  />
-                  <button
-                    onClick={() => removeFile(i)}
-                    className="absolute left-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/55 text-white shadow-[0_8px_24px_rgba(0,0,0,0.32)] backdrop-blur-md transition-all duration-200 hover:bg-destructive hover:text-white"
-                    aria-label={`Remove ${files[i]?.name ?? "image"}`}
+            {/* Thumbnail grid */}
+            <div className="p-4">
+              <div className="grid grid-cols-2 gap-3">
+                {filePreviews.map((src, i) => (
+                  <div
+                    key={i}
+                    className="relative group aspect-square rounded-lg overflow-hidden border border-border bg-muted/30"
+                    style={{
+                      animation: `scaleIn 0.25s cubic-bezier(0.175,0.885,0.32,1.275) ${i * 0.04}s both`,
+                    }}
                   >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-0.5 pr-20">
-                    <p className="text-white text-[9px] truncate font-mono-custom">
-                      {files[i]?.name}
-                    </p>
+                    <ImagePreview
+                      src={src}
+                      alt={files[i]?.name ?? "Selected image preview"}
+                      file={files[i] ?? null}
+                      actionPlacement="bottom-right"
+                      actionVariant="compact"
+                      className="h-full w-full"
+                      imgClassName="object-cover"
+                      fallbackLabel="No preview"
+                    />
+                    <button
+                      onClick={() => removeFile(i)}
+                      className="absolute left-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/55 text-white shadow-[0_8px_24px_rgba(0,0,0,0.32)] backdrop-blur-md transition-all duration-200 hover:bg-destructive hover:text-white"
+                      aria-label={`Remove ${files[i]?.name ?? "image"}`}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-0.5 pr-20">
+                      <p className="text-white text-[9px] truncate font-mono-custom">
+                        {files[i]?.name}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {/* Add more button */}
+                <div
+                  className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-cyan/40 flex items-center justify-center cursor-pointer transition-colors"
+                  onClick={() => inputRef.current?.click()}
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <Upload className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-[9px] text-muted-foreground">
+                      Add more
+                    </span>
                   </div>
                 </div>
-              ))}
-              {/* Add more button */}
-              <div
-                className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-cyan/40 flex items-center justify-center cursor-pointer transition-colors"
-                onClick={() => inputRef.current?.click()}
-              >
-                <div className="flex flex-col items-center gap-1">
-                  <Upload className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-[9px] text-muted-foreground">
-                    Add more
-                  </span>
-                </div>
               </div>
+            </div>
+
+            {/* Start button */}
+            <div className="px-4 pb-4 flex items-center gap-3">
+              <button
+                onClick={startProcessing}
+                className="flex-1 flex items-center justify-center gap-2.5 py-3 rounded-xl gradient-cyan text-navy font-display font-bold text-base hover:opacity-90 active:scale-[0.98] transition-all"
+                style={{ boxShadow: "0 0 20px oklch(0.82 0.18 196 / 0.3)" }}
+              >
+                <Zap className="w-4 h-4" />
+                Remove Metadata
+                <span className="font-mono-custom font-normal text-sm opacity-70">
+                  ({files.length})
+                </span>
+              </button>
+              <button
+                onClick={reset}
+                className="px-4 py-3 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:border-cyan/30 transition-colors text-sm"
+              >
+                Cancel
+              </button>
             </div>
           </div>
 
-          {/* Start button */}
-          <div className="px-4 pb-4 flex items-center gap-3">
-            <button
-              onClick={startProcessing}
-              className="flex-1 flex items-center justify-center gap-2.5 py-3 rounded-xl gradient-cyan text-navy font-display font-bold text-base hover:opacity-90 active:scale-[0.98] transition-all"
-              style={{ boxShadow: "0 0 20px oklch(0.82 0.18 196 / 0.3)" }}
-            >
-              <Zap className="w-4 h-4" />
-              Remove Metadata
-              <span className="font-mono-custom font-normal text-sm opacity-70">
-                ({files.length})
-              </span>
-            </button>
-            <button
-              onClick={reset}
-              className="px-4 py-3 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:border-cyan/30 transition-colors text-sm"
-            >
-              Cancel
-            </button>
-          </div>
+          {files.length === 1 && (
+            singleFileMetadata ? (
+              <MetadataViewerPanel
+                result={singleFileMetadata}
+                previewUrl={filePreviews[0] ?? null}
+                groups={singleFileMetadata.groups}
+                stickyToolbar
+                containerIdPrefix="home-metadata"
+                stickyBaseOffset={64}
+              />
+            ) : (
+              <div className="rounded-2xl border border-border/40 bg-navy-800/45 px-5 py-8 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-cyan/25 bg-cyan/10">
+                  {singleFileMetadataLoading ? (
+                    <LoaderCircle className="h-7 w-7 animate-spin text-cyan" />
+                  ) : (
+                    <FileText className="h-7 w-7 text-cyan" />
+                  )}
+                </div>
+                <p className="mt-4 font-display text-lg font-semibold text-foreground">
+                  {singleFileMetadataLoading
+                    ? "Preparing metadata viewer…"
+                    : "Metadata viewer unavailable"}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {singleFileMetadataLoading
+                    ? "Reading this image with the shared EXIF Viewer component."
+                    : singleFileMetadataError ??
+                      "This image can still be processed even if the viewer could not be loaded."}
+                </p>
+              </div>
+            )
+          )}
         </div>
       )}
 
@@ -1849,6 +1936,17 @@ export default function Home() {
               </svg>
               EXIF Viewer
             </a>
+            <span className="text-border">·</span>
+            <a
+              href={BLANKAI_EXTENSION_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-muted-foreground hover:border-cyan/30 hover:text-cyan transition-colors"
+            >
+              <Globe className="w-3 h-3" />
+              Chrome Extension
+              <ExternalLink className="w-3 h-3 opacity-70" />
+            </a>
             <span className="ml-auto text-[10px] text-muted-foreground/50 hidden sm:block">
               blankai.app
             </span>
@@ -1875,6 +1973,56 @@ export default function Home() {
               Your images never leave your device. All processing happens in
               your browser.
             </span>
+          </div>
+          <div className="mt-6 rounded-2xl border border-cyan/20 bg-[radial-gradient(circle_at_top,rgba(0,212,255,0.08),transparent_52%),linear-gradient(135deg,rgba(7,14,25,0.92),rgba(9,18,32,0.9))] p-5 shadow-[0_18px_50px_rgba(4,10,20,0.18)]">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl border border-cyan/20 bg-cyan/10">
+                  <Globe className="h-5 w-5 text-cyan" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-cyan/20 bg-cyan/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan">
+                      Companion Extension
+                    </span>
+                    <span className="text-[11px] text-muted-foreground/70">
+                      Chrome Web Store updated March 18, 2026
+                    </span>
+                  </div>
+                  <h3 className="mt-3 font-display text-xl font-bold text-foreground">
+                    Keep BlankAI in your browser workflow
+                  </h3>
+                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                    Install the BlankAI Chrome extension to inspect privacy-related
+                    image details and remove metadata locally without leaving the page
+                    you are working on.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {[
+                      "Inspect hidden image data",
+                      "Clean locally in Chrome",
+                      "No server uploads",
+                    ].map(tag => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-border/60 bg-background/40 px-2.5 py-1 text-[11px] text-muted-foreground"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <a
+                href={BLANKAI_EXTENSION_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan/30 bg-cyan/10 px-5 py-3 text-sm font-semibold text-cyan transition-all hover:border-cyan/40 hover:bg-cyan/15 hover:text-cyan/90"
+              >
+                Open Chrome Web Store
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            </div>
           </div>
         </div>
       </section>

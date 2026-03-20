@@ -13,24 +13,22 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  Upload, File, Camera, MapPin, Clock, FileText, Layers, Palette,
-  Image, Cpu, AlertTriangle, Shield, Download, RefreshCw,
-  ChevronDown, ChevronRight, ExternalLink, Zap, Copy, Check,
+  Upload, MapPin, FileText, AlertTriangle, Shield, Download, RefreshCw,
+  ChevronDown, ChevronRight, ExternalLink, Zap,
   Eye, Info, X, Search
 } from "lucide-react";
 import ImagePreview from "@/components/ImagePreview";
+import MetadataViewerPanel from "@/components/MetadataViewerPanel";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import { usePageMeta } from "@/hooks/usePageMeta";
-import { extractExif, type ExifResult, type MetaGroup } from "@/lib/exifReader";
+import { extractExif, type ExifResult } from "@/lib/exifReader";
 import { createImagePreviewDataUrl, fetchPublicFile } from "@/lib/imagePreview";
 import {
   buildDisplayMetadataGroups,
   buildMetadataEditDraft,
   createBrowserJpegMetadataWriter,
   normalizeMetadataEditDraft,
-  type DisplayMetaGroup,
-  type EditableFieldDefinition,
   type MetadataEditDraft,
   type MetadataEditKey,
   type MetadataFieldErrors,
@@ -45,57 +43,6 @@ import {
   openPendingRemover,
   takePendingExifViewerFile,
 } from "@/lib/pendingImageRoute";
-
-// ─── Icon map ─────────────────────────────────────────────────────────────────
-const ICON_MAP: Record<string, React.ReactNode> = {
-  File: <File className="w-4 h-4" />,
-  Camera: <Camera className="w-4 h-4" />,
-  MapPin: <MapPin className="w-4 h-4" />,
-  Clock: <Clock className="w-4 h-4" />,
-  FileText: <FileText className="w-4 h-4" />,
-  Layers: <Layers className="w-4 h-4" />,
-  Palette: <Palette className="w-4 h-4" />,
-  Image: <Image className="w-4 h-4" />,
-  Cpu: <Cpu className="w-4 h-4" />,
-  Aperture: <Eye className="w-4 h-4" />,
-};
-
-// ─── Risk badge ───────────────────────────────────────────────────────────────
-function RiskBadge({ level }: { level: MetaGroup["riskLevel"] }) {
-  if (level === "none") return null;
-  const map = {
-    high: "bg-red-500/15 text-red-400 border-red-500/30",
-    medium: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-    low: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-  };
-  const label = { high: "High Risk", medium: "Medium Risk", low: "Low Risk" };
-  return (
-    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border ${map[level]}`}>
-      <AlertTriangle className="w-2.5 h-2.5" />
-      {label[level]}
-    </span>
-  );
-}
-
-// ─── Copy button ──────────────────────────────────────────────────────────────
-function CopyBtn({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-  return (
-    <button
-      onClick={copy}
-      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-foreground"
-      title="Copy value"
-    >
-      {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-    </button>
-  );
-}
 
 function buildGoogleMapsUrl(lat: number, lon: number) {
   return `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(7)},${lon.toFixed(7)}`;
@@ -119,213 +66,6 @@ function downloadDataUrl(dataUrl: string, fileName: string) {
 function toReadableError(error: unknown) {
   if (error instanceof Error && error.message) return error.message;
   return "Could not save the edited metadata. Please try again.";
-}
-
-// ─── Metadata group panel ─────────────────────────────────────────────────────
-function GroupPanel({
-  group,
-  isActive,
-  isEditMode,
-  draft,
-  originalDraft,
-  fieldErrors,
-  onFieldChange,
-}: {
-  group: DisplayMetaGroup;
-  isActive: boolean;
-  isEditMode: boolean;
-  draft: MetadataEditDraft | null;
-  originalDraft: MetadataEditDraft | null;
-  fieldErrors: MetadataFieldErrors;
-  onFieldChange: (key: MetadataEditKey, value: string) => void;
-}) {
-  const [open, setOpen] = useState(true);
-  const [search, setSearch] = useState("");
-
-  const filtered = search
-    ? group.fields.filter(f =>
-        f.label.toLowerCase().includes(search.toLowerCase()) ||
-        f.value.toLowerCase().includes(search.toLowerCase())
-      )
-    : group.fields;
-
-  const renderEditableField = (definition: EditableFieldDefinition) => {
-    const value = draft?.[definition.key] ?? "";
-    const error = fieldErrors[definition.key];
-    const isDirty = value !== (originalDraft?.[definition.key] ?? "");
-    const sharedClassName = `w-full rounded-lg border px-3 py-2 text-sm text-foreground transition-colors focus:outline-none focus:ring-1 ${
-      error
-        ? "border-red-500/50 bg-red-500/5 focus:border-red-500/60 focus:ring-red-500/20"
-        : isDirty
-          ? "border-emerald-400/45 bg-emerald-500/10 focus:border-emerald-400/55 focus:ring-emerald-400/20"
-          : "border-cyan/35 bg-cyan/10 focus:border-cyan/50 focus:ring-cyan/20"
-    }`;
-
-    if (definition.inputType === "textarea") {
-      return (
-        <textarea
-          value={value}
-          rows={definition.rows ?? 3}
-          placeholder={definition.placeholder}
-          onChange={event => onFieldChange(definition.key, event.target.value)}
-          className={`${sharedClassName} resize-y min-h-24`}
-        />
-      );
-    }
-
-    return (
-      <input
-        type={definition.inputType}
-        value={value}
-        step={definition.step}
-        placeholder={definition.placeholder}
-        onChange={event => onFieldChange(definition.key, event.target.value)}
-        className={sharedClassName}
-      />
-    );
-  };
-
-  return (
-    <div
-      id={`group-${group.id}`}
-      className={`scroll-mt-44 rounded-xl border transition-all duration-200 lg:scroll-mt-24 ${
-        isActive
-          ? "border-cyan/40 bg-navy-800/80"
-          : "border-border/50 bg-navy-800/40"
-      }`}
-    >
-      {/* Group header */}
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-4 py-3.5 text-left"
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <span className={`flex-shrink-0 ${group.color}`}>
-            {ICON_MAP[group.icon] ?? <File className="w-4 h-4" />}
-          </span>
-          <span className="font-semibold text-foreground text-sm truncate">{group.label}</span>
-          <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full flex-shrink-0">
-            {group.fields.length}
-          </span>
-          <RiskBadge level={group.riskLevel} />
-        </div>
-        <ChevronDown className={`w-4 h-4 text-muted-foreground flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-
-      {/* Group body */}
-      {open && (
-        <div className="px-4 pb-4">
-          {/* Search within group (only if many fields) */}
-          {group.fields.length > 6 && group.id !== "gps" && (
-            <div className="relative mb-3">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Filter fields…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-xs bg-muted/30 border border-border/50 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-cyan/50 focus:ring-1 focus:ring-cyan/20"
-              />
-              {search && (
-                <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-          )}
-
-          {filtered.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic py-2">No fields match your search.</p>
-          ) : (
-            <div className="divide-y divide-border/30">
-              {filtered.map((field) => (
-                <div
-                  key={field.key}
-                  className={`group flex items-start gap-3 rounded-lg px-2 py-2.5 transition-colors ${
-                    isEditMode && field.editableDefinition
-                      ? draft?.[field.editableDefinition.key] !== (originalDraft?.[field.editableDefinition.key] ?? "")
-                        ? "bg-emerald-500/5"
-                        : "bg-cyan/5"
-                      : ""
-                  }`}
-                >
-                  <div className="flex-shrink-0 w-36 sm:w-44">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className={`text-xs font-medium leading-relaxed ${
-                        isEditMode && field.editableDefinition
-                          ? draft?.[field.editableDefinition.key] !== (originalDraft?.[field.editableDefinition.key] ?? "")
-                            ? "text-emerald-300"
-                            : "text-cyan-200"
-                          : "text-muted-foreground"
-                      }`}>
-                        {field.label}
-                      </span>
-                      {field.sensitive && (
-                        <span className="text-[9px] text-red-400 font-bold">●</span>
-                      )}
-                      {field.aiRelated && (
-                        <span className="text-[9px] text-cyan font-bold">AI</span>
-                      )}
-                      {isEditMode && field.editableDefinition && draft?.[field.editableDefinition.key] === (originalDraft?.[field.editableDefinition.key] ?? "") && (
-                        <span className="rounded-full border border-cyan/20 bg-cyan/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-cyan/85">
-                          Editable
-                        </span>
-                      )}
-                      {isEditMode && field.editableDefinition && draft?.[field.editableDefinition.key] !== (originalDraft?.[field.editableDefinition.key] ?? "") && (
-                        <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-emerald-300">
-                          Edited
-                        </span>
-                      )}
-                      {isEditMode && !field.editableDefinition && (
-                        <span className="rounded-full border border-border/50 bg-muted/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
-                          Read-only
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0 flex items-start gap-1">
-                    {(field.key === "maps_link_google" || field.key === "maps_link_apple") ? (
-                      <a
-                        href={field.value}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-cyan hover:text-cyan/80 underline underline-offset-2 break-all leading-relaxed flex items-center gap-1"
-                        onClick={e => e.stopPropagation()}
-                      >
-                        <MapPin className="w-3 h-3 flex-shrink-0" />
-                        {field.key === "maps_link_apple" ? "Open in Apple Maps" : "Open in Google Maps"}
-                        <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
-                      </a>
-                    ) : isEditMode && field.editableDefinition ? (
-                      <div className="w-full space-y-1.5">
-                        {renderEditableField(field.editableDefinition)}
-                        {(fieldErrors[field.editableDefinition.key] || field.editableDefinition.helperText) && (
-                          <p className={`text-[11px] leading-relaxed ${
-                            fieldErrors[field.editableDefinition.key]
-                              ? "text-red-400"
-                              : "text-muted-foreground/80"
-                          }`}>
-                            {fieldErrors[field.editableDefinition.key] ?? field.editableDefinition.helperText}
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-foreground break-all leading-relaxed font-mono-custom">
-                        {field.value}
-                      </span>
-                    )}
-                    {!isEditMode && !["maps_link_google", "maps_link_apple"].includes(field.key) && (
-                      <CopyBtn text={field.value} />
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
 }
 // ─── Summary risk card ────────────────────────────────────────────
 function RiskSummary({ result, onRemove }: { result: ExifResult; onRemove?: () => void }) {
@@ -458,7 +198,6 @@ export default function ExifViewer() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [activeGroup, setActiveGroup] = useState<string>("file");
   const [isReady, setIsReady] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [currentFile, setCurrentFile] = useState<File | null>(null);
@@ -473,10 +212,6 @@ export default function ExifViewer() {
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [isSavingMetadata, setIsSavingMetadata] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const resultToolbarRef = useRef<HTMLDivElement>(null);
-  const mobileCategoryShellRef = useRef<HTMLDivElement>(null);
-  const mobileCategoryNavRef = useRef<HTMLDivElement>(null);
-  const [resultToolbarHeight, setResultToolbarHeight] = useState(0);
   const [, navigate] = useLocation();
 
   // Navigate to home with current file pre-loaded into the metadata remover
@@ -548,9 +283,6 @@ export default function ExifViewer() {
         });
       }
       setResult(data);
-      // Auto-scroll to GPS group if it has data
-      const firstGroup = data.hasGPS ? "gps" : (data.hasCameraInfo ? "camera" : data.groups[0]?.id ?? "file");
-      setActiveGroup(firstGroup);
     } catch (e) {
       console.error(e);
       setError(isHeic
@@ -923,97 +655,6 @@ export default function ExifViewer() {
     }
   }, [currentFile, editDraft, processFile]);
 
-  const scrollToGroup = (id: string) => {
-    setActiveGroup(id);
-    const group = document.getElementById(`group-${id}`);
-    if (!group) return;
-
-    const isDesktop = window.innerWidth >= 1024;
-    const stickyHeaderHeight = 64;
-    const toolbarOffset = stickyHeaderHeight + resultToolbarHeight;
-    const mobileNavHeight = mobileCategoryShellRef.current?.getBoundingClientRect().height ?? 0;
-    const offset = isDesktop ? toolbarOffset + 24 : toolbarOffset + mobileNavHeight + 24;
-    const nextTop = window.scrollY + group.getBoundingClientRect().top - offset;
-
-    window.scrollTo({
-      top: Math.max(nextTop, 0),
-      behavior: "smooth",
-    });
-  };
-
-  useEffect(() => {
-    if (displayGroups.length === 0) return;
-
-    const groups = displayGroups
-      .map(group => ({
-        id: group.id,
-        element: document.getElementById(`group-${group.id}`),
-      }))
-      .filter((entry): entry is { id: string; element: HTMLElement } => Boolean(entry.element));
-
-    if (groups.length === 0) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter(entry => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-
-        if (visible?.target.id) {
-          setActiveGroup(visible.target.id.replace("group-", ""));
-        }
-      },
-      {
-        rootMargin: "-120px 0px -45% 0px",
-        threshold: [0.2, 0.35, 0.5, 0.75],
-      }
-    );
-
-    groups.forEach(({ element }) => observer.observe(element));
-    return () => observer.disconnect();
-  }, [displayGroups]);
-
-  useEffect(() => {
-    if (displayGroups.length === 0) return;
-    if (displayGroups.some(group => group.id === activeGroup)) return;
-    setActiveGroup(displayGroups[0]?.id ?? "file");
-  }, [activeGroup, displayGroups]);
-
-  useEffect(() => {
-    const activeButton = mobileCategoryNavRef.current?.querySelector<HTMLButtonElement>(
-      `[data-group-nav="${activeGroup}"]`
-    );
-    activeButton?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }, [activeGroup]);
-
-  useEffect(() => {
-    const node = resultToolbarRef.current;
-    if (!node) {
-      setResultToolbarHeight(0);
-      return;
-    }
-
-    const updateHeight = () => {
-      setResultToolbarHeight(node.getBoundingClientRect().height);
-    };
-
-    updateHeight();
-
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", updateHeight);
-      return () => window.removeEventListener("resize", updateHeight);
-    }
-
-    const observer = new ResizeObserver(updateHeight);
-    observer.observe(node);
-    window.addEventListener("resize", updateHeight);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", updateHeight);
-    };
-  }, [result, isEditMode, saveError, saveSuccess]);
-
   const gpsMapLinks = useMemo(() => {
     if (!result?.hasGPS || result.gpsLat == null || result.gpsLon == null) {
       return null;
@@ -1244,263 +885,156 @@ export default function ExifViewer() {
             )}
 
             {result && (
-              /* Results layout */
-              <div className="space-y-6" style={{ animation: "fadeInUp 0.4s ease-out" }}>
-                {/* Top bar */}
-                <div
-                  ref={resultToolbarRef}
-                  className="sticky top-16 z-30 rounded-2xl border border-border/40 bg-background/90 px-4 py-3 backdrop-blur-md shadow-[0_18px_48px_rgba(4,10,20,0.22)]"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      {/* Thumbnail preview */}
-                      {previewUrl && (
-                        <div className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-border/50 bg-muted/30">
-                          <ImagePreview
-                            src={previewUrl}
-                            alt={result.fileName}
-                            showExifAction={false}
-                            className="h-full w-full"
-                            imgClassName="object-cover"
-                            fallbackLabel="No preview"
-                          />
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <h2 className="truncate font-display font-bold text-lg text-foreground">
-                          {result.fileName}
-                        </h2>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                          {result.width && result.height ? `${result.width} × ${result.height} px · ` : ""}
-                          {(result.fileSize / 1024).toFixed(1)} KB · {result.fileType}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {isEditMode ? (
-                        <>
-                          <button
-                            onClick={handleSaveEditedMetadata}
-                            disabled={isSavingMetadata || !editDraft}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg gradient-cyan text-navy text-xs font-bold transition-opacity disabled:cursor-wait disabled:opacity-70"
-                          >
-                            <Download className={`w-3.5 h-3.5 ${isSavingMetadata ? "animate-pulse" : ""}`} />
-                            {isSavingMetadata ? "Saving…" : "Save New JPEG"}
-                          </button>
-                          <button
-                            onClick={resetEditDraft}
-                            disabled={isSavingMetadata}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:border-cyan/40 transition-all disabled:opacity-60"
-                          >
-                            <RefreshCw className="w-3.5 h-3.5" />
-                            Reset Changes
-                          </button>
-                          <button
-                            onClick={cancelEditMode}
-                            disabled={isSavingMetadata}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:border-border transition-all disabled:opacity-60"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                            Cancel Edit
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={enterEditMode}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan/30 bg-cyan/10 text-xs text-cyan hover:bg-cyan/15 hover:border-cyan/40 transition-all"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                            Edit Metadata
-                          </button>
-                          <button
-                            onClick={exportJSON}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:border-cyan/40 transition-all"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                            Export JSON
-                          </button>
-                          <button
-                            onClick={exportCSV}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:border-cyan/40 transition-all"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                            Export CSV
-                          </button>
-                          <button
-                            onClick={reset}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:border-border transition-all"
-                          >
-                            <RefreshCw className="w-3.5 h-3.5" />
-                            New File
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Screenshot warning banner */}
-                {hasScreenshotNote && (
-                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 flex gap-3">
-                    <span className="text-amber-400 text-lg flex-shrink-0">📱</span>
-                    <div>
-                      <p className="text-amber-400 font-semibold text-sm mb-1">Screenshot Detected</p>
-                      <p className="text-muted-foreground text-sm leading-relaxed">
-                        This file is a screenshot — screenshots do not contain GPS coordinates, camera model, or lens data.
-                        To view full EXIF metadata, open your iPhone <strong className="text-foreground">Camera app</strong>, take a photo,
-                        then upload that photo (file name will be <code className="text-cyan text-xs bg-cyan/10 px-1 rounded">IMG_xxxx.HEIC</code> or <code className="text-cyan text-xs bg-cyan/10 px-1 rounded">IMG_xxxx.JPG</code>).
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {isEditMode && (
-                  <div className="rounded-xl border border-cyan/30 bg-cyan/5 p-4">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="text-sm font-semibold text-cyan">Editing common metadata only</p>
-                        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                          Save exports a new JPEG copy with the editable fields below. Your original file stays unchanged, and unsupported metadata remains read-only.
-                        </p>
-                      </div>
-                      <span className="rounded-full border border-cyan/20 bg-cyan/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan">
-                        JPEG copy export
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {saveError && (
-                  <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-300">
-                    {saveError}
-                  </div>
-                )}
-
-                {saveSuccess && (
-                  <div className="rounded-xl border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-300">
-                    {saveSuccess}
-                  </div>
-                )}
-
-                {/* Main layout: sidebar + content */}
-                <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-                  {/* Category nav (mobile / tablet) */}
-                  <div
-                    ref={mobileCategoryShellRef}
-                    className="w-full lg:hidden sticky z-20 -mx-4 px-4 pb-2 pt-1"
-                    style={{ top: `${64 + resultToolbarHeight + 8}px` }}
-                  >
-                    <div className="rounded-2xl border border-border/40 bg-background/85 backdrop-blur-md shadow-[0_10px_40px_rgba(4,10,20,0.28)]">
-                      <div className="flex items-center justify-between px-4 pt-3">
-                        <p className="text-[10px] font-mono-custom text-muted-foreground/60 uppercase tracking-[0.2em]">
-                          Categories
-                        </p>
-                        <span className="text-[10px] text-muted-foreground/50">
-                          Swipe to jump
-                        </span>
-                      </div>
-                      <div
-                        ref={mobileCategoryNavRef}
-                        className="flex gap-2 overflow-x-auto px-3 pb-3 pt-2 scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] snap-x snap-mandatory"
+              <MetadataViewerPanel
+                result={result}
+                previewUrl={previewUrl}
+                groups={displayGroups}
+                isEditMode={isEditMode}
+                draft={editDraft}
+                originalDraft={originalEditDraft}
+                fieldErrors={fieldErrors}
+                onFieldChange={handleFieldChange}
+                stickyToolbar
+                stickyBaseOffset={64}
+                containerIdPrefix="exif"
+                toolbarActions={
+                  isEditMode ? (
+                    <>
+                      <button
+                        onClick={handleSaveEditedMetadata}
+                        disabled={isSavingMetadata || !editDraft}
+                        className="flex items-center gap-1.5 rounded-lg gradient-cyan px-3 py-1.5 text-xs font-bold text-navy transition-opacity disabled:cursor-wait disabled:opacity-70"
                       >
-                        {displayGroups.map(group => (
-                          <button
-                            key={group.id}
-                            data-group-nav={group.id}
-                            onClick={() => scrollToGroup(group.id)}
-                            className={`snap-start shrink-0 min-w-fit rounded-xl border px-3 py-2 text-left transition-all ${
-                              activeGroup === group.id
-                                ? "border-cyan/40 bg-cyan/10 text-cyan shadow-[0_0_0_1px_rgba(0,255,255,0.08)]"
-                                : "border-border/50 bg-muted/20 text-muted-foreground"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className={`flex-shrink-0 ${group.color}`}>
-                                {ICON_MAP[group.icon] ?? <File className="w-4 h-4" />}
-                              </span>
-                              <span className="text-xs font-medium whitespace-nowrap">{group.label}</span>
-                              {group.riskLevel !== "none" && (
-                                <span className={`w-1.5 h-1.5 rounded-full ${
-                                  group.riskLevel === "high" ? "bg-red-400" :
-                                  group.riskLevel === "medium" ? "bg-amber-400" : "bg-blue-400"
-                                }`} />
-                              )}
-                            </div>
-                          </button>
-                        ))}
+                        <Download className={`w-3.5 h-3.5 ${isSavingMetadata ? "animate-pulse" : ""}`} />
+                        {isSavingMetadata ? "Saving…" : "Save New JPEG"}
+                      </button>
+                      <button
+                        onClick={resetEditDraft}
+                        disabled={isSavingMetadata}
+                        className="flex items-center gap-1.5 rounded-lg border border-border/50 px-3 py-1.5 text-xs text-muted-foreground transition-all hover:border-cyan/40 hover:text-foreground disabled:opacity-60"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        Reset Changes
+                      </button>
+                      <button
+                        onClick={cancelEditMode}
+                        disabled={isSavingMetadata}
+                        className="flex items-center gap-1.5 rounded-lg border border-border/50 px-3 py-1.5 text-xs text-muted-foreground transition-all hover:border-border hover:text-foreground disabled:opacity-60"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        Cancel Edit
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={enterEditMode}
+                        className="flex items-center gap-1.5 rounded-lg border border-cyan/30 bg-cyan/10 px-3 py-1.5 text-xs text-cyan transition-all hover:border-cyan/40 hover:bg-cyan/15"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        Edit Metadata
+                      </button>
+                      <button
+                        onClick={exportJSON}
+                        className="flex items-center gap-1.5 rounded-lg border border-border/50 px-3 py-1.5 text-xs text-muted-foreground transition-all hover:border-cyan/40 hover:text-foreground"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Export JSON
+                      </button>
+                      <button
+                        onClick={exportCSV}
+                        className="flex items-center gap-1.5 rounded-lg border border-border/50 px-3 py-1.5 text-xs text-muted-foreground transition-all hover:border-cyan/40 hover:text-foreground"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Export CSV
+                      </button>
+                      <button
+                        onClick={reset}
+                        className="flex items-center gap-1.5 rounded-lg border border-border/50 px-3 py-1.5 text-xs text-muted-foreground transition-all hover:border-border hover:text-foreground"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        New File
+                      </button>
+                    </>
+                  )
+                }
+                notices={
+                  <>
+                    {hasScreenshotNote && (
+                      <div className="flex gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+                        <span className="flex-shrink-0 text-lg text-amber-400">📱</span>
+                        <div>
+                          <p className="mb-1 text-sm font-semibold text-amber-400">
+                            Screenshot Detected
+                          </p>
+                          <p className="text-sm leading-relaxed text-muted-foreground">
+                            This file is a screenshot — screenshots do not contain GPS coordinates,
+                            camera model, or lens data. To view full EXIF metadata, open your
+                            iPhone <strong className="text-foreground">Camera app</strong>, take a
+                            photo, then upload that photo (file name will be{" "}
+                            <code className="rounded bg-cyan/10 px-1 text-xs text-cyan">
+                              IMG_xxxx.HEIC
+                            </code>{" "}
+                            or{" "}
+                            <code className="rounded bg-cyan/10 px-1 text-xs text-cyan">
+                              IMG_xxxx.JPG
+                            </code>
+                            ).
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    )}
 
-                  {/* Sidebar category nav (desktop) */}
-                  <aside
-                    className="hidden lg:block w-52 flex-shrink-0 sticky"
-                    style={{ top: `${64 + resultToolbarHeight + 24}px` }}
-                  >
-                    <p className="text-[10px] font-mono-custom text-muted-foreground/50 uppercase tracking-wider px-2 mb-2">Categories</p>
-                    <nav className="space-y-0.5">
-                      {displayGroups.map(group => (
-                        <button
-                          key={group.id}
-                          data-group-nav={group.id}
-                          onClick={() => scrollToGroup(group.id)}
-                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left text-sm transition-all ${
-                            activeGroup === group.id
-                              ? "bg-cyan/10 text-cyan"
-                              : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className={`flex-shrink-0 ${group.color}`}>
-                              {ICON_MAP[group.icon] ?? <File className="w-4 h-4" />}
-                            </span>
-                            <span className="truncate text-xs font-medium">{group.label}</span>
+                    {isEditMode && (
+                      <div className="rounded-xl border border-cyan/30 bg-cyan/5 p-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-cyan">
+                              Editing common metadata only
+                            </p>
+                            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                              Save exports a new JPEG copy with the editable fields below. Your
+                              original file stays unchanged, and unsupported metadata remains
+                              read-only.
+                            </p>
                           </div>
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            {group.riskLevel !== "none" && (
-                              <span className={`w-1.5 h-1.5 rounded-full ${
-                                group.riskLevel === "high" ? "bg-red-400" :
-                                group.riskLevel === "medium" ? "bg-amber-400" : "bg-blue-400"
-                              }`} />
-                            )}
-                            <span className="text-[10px] text-muted-foreground">{group.fields.length}</span>
-                          </div>
-                        </button>
-                      ))}
-                    </nav>
-                  </aside>
+                          <span className="rounded-full border border-cyan/20 bg-cyan/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan">
+                            JPEG copy export
+                          </span>
+                        </div>
+                      </div>
+                    )}
 
-                  {/* Metadata groups */}
-                  <div className="w-full flex-1 min-w-0 space-y-3">
-                    {displayGroups.map(group => (
-                      <GroupPanel
-                        key={group.id}
-                        group={group}
-                        isActive={activeGroup === group.id}
-                        isEditMode={isEditMode}
-                        draft={editDraft}
-                        originalDraft={originalEditDraft}
-                        fieldErrors={fieldErrors}
-                        onFieldChange={handleFieldChange}
-                      />
-                    ))}
+                    {saveError && (
+                      <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-300">
+                        {saveError}
+                      </div>
+                    )}
 
-                    {/* Bottom CTA */}
-                    <div className="rounded-xl border border-cyan/30 bg-cyan/5 p-5 mt-2">
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    {saveSuccess && (
+                      <div className="rounded-xl border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-300">
+                        {saveSuccess}
+                      </div>
+                    )}
+                  </>
+                }
+                bottomContent={
+                  <>
+                    <div className="mt-2 rounded-xl border border-cyan/30 bg-cyan/5 p-5">
+                      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
                         <div className="flex-1">
-                          <h3 className="font-display font-bold text-foreground text-sm mb-1">
+                          <h3 className="mb-1 text-sm font-bold text-foreground font-display">
                             Want to remove all this metadata?
                           </h3>
                           <p className="text-xs text-muted-foreground">
-                            BlankAI strips EXIF, GPS, C2PA, and AI pixel fingerprints in seconds — free, no account needed.
+                            BlankAI strips EXIF, GPS, C2PA, and AI pixel fingerprints in seconds
+                            — free, no account needed.
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={() => goToRemover(currentFile)}
-                          className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg gradient-cyan text-navy font-bold text-sm hover:opacity-90 transition-opacity"
+                          className="flex flex-shrink-0 items-center gap-1.5 rounded-lg gradient-cyan px-4 py-2 text-sm font-bold text-navy transition-opacity hover:opacity-90"
                         >
                           <Zap className="w-3.5 h-3.5" />
                           Remove Metadata Free
@@ -1509,56 +1043,60 @@ export default function ExifViewer() {
                     </div>
 
                     <div className="space-y-4 pt-2">
-                      {/* GPS location banner — shown when GPS data found */}
-                      {result.hasGPS && result.gpsLat != null && result.gpsLon != null && gpsMapLinks && (
-                        <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4">
-                          <div className="flex flex-col gap-3">
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                              <div className="flex items-center gap-2 text-red-400">
-                                <MapPin className="w-5 h-5 flex-shrink-0" />
-                                <span className="font-bold text-sm">GPS Location Detected</span>
+                      {result.hasGPS &&
+                        result.gpsLat != null &&
+                        result.gpsLon != null &&
+                        gpsMapLinks && (
+                          <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4">
+                            <div className="flex flex-col gap-3">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                <div className="flex items-center gap-2 text-red-400">
+                                  <MapPin className="w-5 h-5 flex-shrink-0" />
+                                  <span className="text-sm font-bold">GPS Location Detected</span>
+                                </div>
+                                <div className="flex-1 rounded-lg bg-red-500/10 px-3 py-1.5 font-mono text-xs text-foreground">
+                                  {result.gpsLat.toFixed(6)}, {result.gpsLon.toFixed(6)}
+                                </div>
                               </div>
-                              <div className="flex-1 font-mono text-xs text-foreground bg-red-500/10 px-3 py-1.5 rounded-lg">
-                                {result.gpsLat.toFixed(6)}, {result.gpsLon.toFixed(6)}
+                              <div className="flex flex-wrap gap-2">
+                                <a
+                                  href={gpsMapLinks.apple}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/15 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/25"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  Apple Maps
+                                </a>
+                                <a
+                                  href={gpsMapLinks.google}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/15 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/25"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  Google Maps
+                                </a>
+                                <button
+                                  onClick={() => goToRemover(currentFile)}
+                                  className="flex items-center gap-1.5 rounded-lg gradient-cyan px-3 py-1.5 text-xs font-bold text-navy transition-opacity hover:opacity-90"
+                                >
+                                  <Zap className="w-3 h-3" />
+                                  Remove GPS
+                                </button>
                               </div>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              <a
-                                href={gpsMapLinks.apple}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/25 transition-colors"
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                                Apple Maps
-                              </a>
-                              <a
-                                href={gpsMapLinks.google}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/25 transition-colors"
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                                Google Maps
-                              </a>
-                              <button
-                                onClick={() => goToRemover(currentFile)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg gradient-cyan text-navy text-xs font-bold hover:opacity-90 transition-opacity"
-                              >
-                                <Zap className="w-3 h-3" />
-                                Remove GPS
-                              </button>
                             </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* Risk summary */}
-                      <RiskSummary result={result} onRemove={() => goToRemover(currentFile)} />
+                      <RiskSummary
+                        result={result}
+                        onRemove={() => goToRemover(currentFile)}
+                      />
                     </div>
-                  </div>
-                </div>
-              </div>
+                  </>
+                }
+              />
             )}
           </div>
         </section>
