@@ -117,7 +117,7 @@ export default function PrivacyPolicy() {
             <p>
               BlankAI is a browser-based image processing tool. The core
               functionality — removing AI metadata, EXIF data, C2PA credentials,
-              GPS tags, and pixel fingerprints — is executed entirely within
+              GPS tags, and other hidden image metadata — is executed entirely within
               your web browser using the HTML5 Canvas API and Web Crypto API.{" "}
               <strong>
                 At no point during image processing are your images transmitted

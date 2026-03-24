@@ -3,7 +3,7 @@
  * Design: Precision Engineering Dark Technical
  * Color: Deep Navy (#0A0F1E) + Electric Cyan (#00D4FF)
  * Typography: Space Grotesk (display) + Inter (body) + JetBrains Mono (stats)
- * SEO Target: remove ai pixel metadata remover undetectable ai image
+ * SEO Target: remove ai content credentials, image metadata remover, c2pa remover
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -64,6 +64,7 @@ import {
   stashPendingRemoverFile,
   takePendingRemoverFile,
 } from "@/lib/pendingImageRoute";
+import { trackEvent } from "@/lib/analytics";
 
 const repoUrl = "https://github.com/BrittAbdula/blankai-app";
 const HOME_SAMPLE_PATH = "/sample.HEIC";
@@ -408,8 +409,13 @@ function ProcessingResults({
   };
 
   const handleShareX = () => {
+    trackEvent("share_click", {
+      page: "home",
+      target: "x",
+      image_count: results.length,
+    });
     const text = encodeURIComponent(
-      `Just removed AI metadata from ${results.length} image${results.length > 1 ? "s" : ""} — now completely undetectable! 🔒 Try it free at blankai.app #AIMetadata #UndetectableAI`
+      `Just removed AI content credentials and metadata from ${results.length} image${results.length > 1 ? "s" : ""} with BlankAI. Browser-only, no uploads. Try it at blankai.app #ImageMetadata #Privacy`
     );
     window.open(
       `https://x.com/intent/tweet?text=${text}`,
@@ -445,7 +451,7 @@ function ProcessingResults({
             Processing Complete!
           </h3>
           <p className="text-muted-foreground text-xs mt-0.5">
-            All AI metadata and pixel fingerprints have been removed
+            Your cleaned file is ready with fresh output metadata removed
           </p>
         </div>
         <button
@@ -706,7 +712,7 @@ function ProcessingResults({
                   <ZapIcon className="w-3.5 h-3.5 text-cyan flex-shrink-0" />
                   <span className="text-cyan font-medium">Pixels:</span>
                   <span className="text-muted-foreground">
-                    {r.pixelsModified.toLocaleString()} fingerprint changes
+                    {r.pixelsModified.toLocaleString()} local pixel updates
                   </span>
                 </div>
 
@@ -808,7 +814,7 @@ function UploadZone() {
   const processingSteps = [
     "Loading image into memory…",
     "Rendering to Canvas · stripping metadata…",
-    "Modifying pixel fingerprint…",
+    "Refreshing pixel data for clean export…",
     "Computing SHA-256 hash…",
     "Encoding clean output…",
   ];
@@ -883,6 +889,12 @@ function UploadZone() {
 
     const merged = [...existing, ...incoming].slice(0, 20);
 
+    trackEvent("remover_files_selected", {
+      source: shouldReplace ? "replace" : stage === "staged" ? "append" : "new",
+      incoming_count: incoming.length,
+      total_count: merged.length,
+    });
+
     setPreparingFiles(incoming);
     setErrorMsg(null);
 
@@ -930,6 +942,10 @@ function UploadZone() {
   }, [handleFilesSelected]);
 
   const startProcessing = async () => {
+    trackEvent("remover_processing_started", {
+      page: "home",
+      image_count: files.length,
+    });
     setStage("processing");
     setProcessingStep(0);
     setProgress({ current: 0, total: files.length });
@@ -939,9 +955,17 @@ function UploadZone() {
       });
       setResults(processed);
       setStage("done");
+      trackEvent("remover_processing_completed", {
+        page: "home",
+        image_count: processed.length,
+      });
     } catch (err) {
       setErrorMsg("Processing failed. Please try a different image format.");
       setStage("error");
+      trackEvent("remover_processing_failed", {
+        page: "home",
+        image_count: files.length,
+      });
       console.error(err);
     }
   };
@@ -1507,6 +1531,10 @@ export default function Home() {
   }, []);
 
   const loadHeroSample = useCallback(async () => {
+    trackEvent("sample_load_clicked", {
+      page: "home",
+      sample: "sample.HEIC",
+    });
     setSampleError(null);
     setSampleLoading(true);
 
@@ -1558,7 +1586,7 @@ export default function Home() {
       icon: Shield,
       title: "C2PA Content Credentials",
       description:
-        "Removes Adobe's provenance data that triggers 'Made with AI' labels on Instagram, Facebook, and Pinterest.",
+        "Removes provenance records and content credentials that platforms and tools can surface as AI-related labels.",
       badge: "C2PA",
     },
     {
@@ -1570,16 +1598,16 @@ export default function Home() {
     },
     {
       icon: Image,
-      title: "AI Generator Signatures",
+      title: "AI Generator Metadata",
       description:
-        "Removes fingerprints from DALL-E, MidJourney, Adobe Firefly, Leonardo AI, and all major AI image tools.",
+        "Cleans metadata written by DALL-E, MidJourney, Adobe Firefly, Leonardo AI, and other major AI image tools.",
       badge: "AI",
     },
     {
       icon: Hash,
-      title: "Pixel-Level Hash Modification",
+      title: "Fresh File Re-encoding",
       description:
-        "Applies ±1-2 RGB pixel changes — invisible to the eye but completely changes the digital fingerprint and hash.",
+        "Exports a fresh image file from local pixel data so old metadata containers do not carry over into the cleaned copy.",
       badge: "HASH",
     },
     {
@@ -1596,13 +1624,13 @@ export default function Home() {
       icon: Image,
       title: "Digital Artists & AI Creators",
       description:
-        "Remove AI signatures from DALL-E, MidJourney, and Stable Diffusion images before sharing on social platforms.",
+        "Clean DALL-E, MidJourney, and Stable Diffusion exports before publishing or sending them to clients.",
     },
     {
       icon: Globe,
       title: "Social Media Managers",
       description:
-        "Prepare AI-generated content for Pinterest, Instagram, and Facebook without triggering detection algorithms.",
+        "Prepare AI-assisted creative assets for Pinterest, Instagram, Facebook, and other publishing workflows.",
     },
     {
       icon: Tag,
@@ -1614,13 +1642,13 @@ export default function Home() {
       icon: FileText,
       title: "Bloggers & Content Marketers",
       description:
-        "Use AI-generated images in blog posts and marketing materials without metadata revealing their AI origins.",
+        "Use AI-assisted images in blog posts and campaigns without shipping hidden metadata alongside them.",
     },
     {
       icon: Users,
       title: "Businesses & Agencies",
       description:
-        "Protect brand image by ensuring AI-generated content appears natural and professional across all channels.",
+        "Standardize clean image exports across teams before assets move into review, publishing, or handoff.",
     },
     {
       icon: Lock,
@@ -1632,8 +1660,8 @@ export default function Home() {
 
   const faqs = [
     {
-      q: "Does BlankAI really make AI images undetectable?",
-      a: "BlankAI removes both metadata signatures and modifies pixel-level fingerprints that AI detection systems use. Our tool has been tested extensively against Pinterest, Instagram, and other platforms' detection systems. We remove C2PA credentials, EXIF data, AI generator signatures, and apply pixel-level hash modification. While highly effective, platforms continuously update their algorithms — we recommend re-processing images periodically for best results.",
+      q: "Does BlankAI remove AI content credentials and metadata completely?",
+      a: "BlankAI creates a fresh exported image in your browser, which removes embedded file metadata such as EXIF, XMP, IPTC, PNG text chunks, and C2PA content credentials from the output file. That addresses the most visible file-level signals, but no tool should promise a permanent guarantee about every future detection method or platform policy.",
     },
     {
       q: "Is it safe? Are my images uploaded to a server?",
@@ -1645,15 +1673,15 @@ export default function Home() {
     },
     {
       q: "What metadata does BlankAI remove from AI images?",
-      a: "BlankAI removes: EXIF data (camera model, timestamps, software, device IDs), GPS and location tags, XMP and IPTC metadata (creator info, copyright, captions), C2PA content credentials (Adobe's provenance data), Stable Diffusion parameters (prompts, seeds, CFG scale, sampler, model hash), AI generator signatures from DALL-E, MidJourney, Firefly, and PNG info chunks (tEXt, iTXt, zTXt). It also modifies the pixel-level hash/fingerprint.",
+      a: "BlankAI removes EXIF data (camera model, timestamps, software, device IDs), GPS and location tags, XMP and IPTC metadata (creator info, copyright, captions), C2PA content credentials, Stable Diffusion parameters (prompts, seeds, CFG scale, sampler, model hash), and PNG info chunks (tEXt, iTXt, zTXt). The cleaned export is generated as a fresh file in your browser.",
     },
     {
       q: "Will removing AI metadata affect image quality?",
-      a: "No visible quality loss occurs. Our algorithm applies microscopic pixel changes (±1-2 RGB values) that are completely invisible to the human eye but change the digital fingerprint. We automatically optimize JPEG compression (85-95% quality) to maintain visual fidelity while keeping files under 5MB.",
+      a: "BlankAI re-encodes the cleaned output as a fresh JPEG export, so there can be minor format and compression changes depending on the source file. In normal use the result stays visually close to the original while hidden metadata is removed.",
     },
     {
-      q: "How does the AI pixel metadata removal process work?",
-      a: "BlankAI uses a 4-step process: (1) Your image is loaded into browser memory via HTML5 File API — no network transmission. (2) The image is rendered onto an HTML5 Canvas, which automatically strips all EXIF, IPTC, XMP metadata and AI-specific signatures. (3) Our algorithm applies microscopic pixel modifications (±1-2 RGB) to change the digital fingerprint. (4) The image is re-encoded as a fresh JPEG with optimized compression, eliminating all AI traces.",
+      q: "How does BlankAI remove AI metadata in the browser?",
+      a: "BlankAI uses a 4-step process: (1) Your image is loaded into browser memory via the HTML5 File API with no network transmission. (2) The image is rendered onto an HTML5 Canvas, which strips EXIF, IPTC, XMP, C2PA, and other embedded metadata containers from the exported result. (3) The cleaned image is re-encoded as a fresh JPEG output. (4) You download the new file directly from your browser.",
     },
     {
       q: "Why is there no GPS data when I upload photos directly from my iPhone?",
@@ -1663,12 +1691,12 @@ export default function Home() {
 
   const comparisonFeatures = [
     "Client-Side Processing",
-    "AI Pixel Fingerprint Removal",
-    "Hash Modification",
+    "Fresh File Re-encoding",
+    "Output Hash Changes",
     "C2PA Credential Removal",
     "Batch Processing (20 images)",
     "No Installation Required",
-    "Pinterest & Instagram Optimized",
+    "Publishing Workflow Ready",
     "Stable Diffusion Parameter Strip",
     "100% Free",
   ];
@@ -1720,21 +1748,21 @@ export default function Home() {
                 </span>
               </div>
 
-              {/* H1 — Primary keyword: remove ai pixel metadata remover undetectable ai image */}
+              {/* H1 — Primary keyword cluster: remove ai content credentials / image metadata remover */}
               <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold text-foreground leading-[1.05] mb-6">
-                Remove AI Metadata &<br />
+                Remove AI Content Credentials &<br />
                 <span className="text-cyan glow-cyan-text">
-                  Make Images Undetectable
+                  Clean Image Metadata
                 </span>
               </h1>
 
               <p className="text-muted-foreground text-lg md:text-xl leading-relaxed mb-8 max-w-2xl">
                 BlankAI strips{" "}
                 <strong className="text-foreground">
-                  EXIF, GPS, C2PA, and AI pixel fingerprints
+                  EXIF, XMP, IPTC, GPS, and C2PA content credentials
                 </strong>{" "}
-                from your images in seconds. The most advanced free AI metadata
-                remover — runs entirely in your browser, zero server uploads.
+                from your images in seconds. Privacy-first metadata cleaning
+                that runs entirely in your browser with zero server uploads.
               </p>
 
               {/* Feature pills */}
@@ -1743,7 +1771,7 @@ export default function Home() {
                   { icon: Lock, label: "No Server Upload" },
                   { icon: Zap, label: "Instant Processing" },
                   { icon: Layers, label: "Batch 20 Images" },
-                  { icon: Shield, label: "Pinterest & Instagram Safe" },
+                  { icon: Shield, label: "C2PA & EXIF Removal" },
                 ].map(({ icon: Icon, label }) => (
                   <div
                     key={label}
@@ -1758,6 +1786,13 @@ export default function Home() {
               <div className="flex flex-col sm:flex-row gap-3">
                 <a
                   href="#upload"
+                  onClick={() =>
+                    trackEvent("cta_click", {
+                      page: "home",
+                      location: "hero",
+                      target: "upload",
+                    })
+                  }
                   className="flex items-center justify-center gap-2 px-7 py-3.5 rounded-lg gradient-cyan text-navy font-bold text-base hover:opacity-90 transition-opacity animate-pulse-glow"
                 >
                   <Upload className="w-4 h-4" />
@@ -1851,9 +1886,9 @@ export default function Home() {
               started={statsStarted}
             />
             <StatCard
-              value={99}
+              value={100}
               suffix="%"
-              label="Detection Bypass Rate"
+              label="Browser-Only Processing"
               started={statsStarted}
             />
             <StatCard
@@ -1959,12 +1994,40 @@ export default function Home() {
         <div className="container max-w-3xl">
           <div className="text-center mb-10">
             <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-3">
-              Strip AI Metadata from Your Images
+              Remove AI Content Credentials from Your Images
             </h2>
             <p className="text-muted-foreground text-base">
-              Free AI pixel metadata remover — no account required, no uploads
-              to servers. Remove EXIF, C2PA, and AI fingerprints instantly.
+              Free image metadata remover with no account required and no
+              uploads to servers. Remove EXIF, XMP, IPTC, and C2PA instantly.
             </p>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs">
+              <a
+                href="/remove-ai-content-credentials"
+                onClick={() =>
+                  trackEvent("intent_page_click", {
+                    page: "home",
+                    target: "remove-ai-content-credentials",
+                    location: "upload_intro",
+                  })
+                }
+                className="rounded-full border border-cyan/20 bg-cyan/10 px-3 py-1.5 text-cyan transition-colors hover:bg-cyan/15"
+              >
+                Remove AI content credentials
+              </a>
+              <a
+                href="/image-metadata-remover"
+                onClick={() =>
+                  trackEvent("intent_page_click", {
+                    page: "home",
+                    target: "image-metadata-remover",
+                    location: "upload_intro",
+                  })
+                }
+                className="rounded-full border border-border bg-card/40 px-3 py-1.5 text-muted-foreground transition-colors hover:border-cyan/30 hover:text-foreground"
+              >
+                Image metadata remover guide
+              </a>
+            </div>
           </div>
           <UploadZone />
           <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
@@ -2038,12 +2101,12 @@ export default function Home() {
               COMPLETE METADATA REMOVAL
             </div>
             <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Every AI Metadata Type — Removed
+              Remove the Metadata That Travels with the File
             </h2>
             <p className="text-muted-foreground text-base max-w-2xl">
-              BlankAI is the most comprehensive AI metadata remover available.
-              We strip every type of embedded data that can identify your images
-              as AI-generated or compromise your privacy.
+              BlankAI removes the hidden data stored alongside image pixels,
+              including file metadata, creator fields, location tags, and AI
+              content credentials that can travel with exported assets.
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -2066,12 +2129,11 @@ export default function Home() {
                 4-STEP PROCESS
               </div>
               <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
-                How BlankAI Removes AI Pixel Metadata
+                How BlankAI Removes AI Metadata
               </h2>
               <p className="text-muted-foreground text-base mb-8">
-                Our advanced algorithm removes all AI traces from your images in
-                under 2 seconds — entirely in your browser. No server, no queue,
-                no waiting.
+                BlankAI creates a fresh cleaned export from your local image
+                data in under 2 seconds. No server, no queue, no waiting.
               </p>
               <div className="space-y-6">
                 {[
@@ -2087,13 +2149,13 @@ export default function Home() {
                   },
                   {
                     step: "03",
-                    title: "AI Pixel Fingerprint Removal",
-                    desc: "Our algorithm applies microscopic changes to pixel values (±1-2 RGB) — invisible to the human eye but completely changing the image's digital fingerprint.",
+                    title: "Fresh Export Is Generated",
+                    desc: "BlankAI creates a new output file from local pixel data so EXIF, IPTC, XMP, C2PA, and related metadata containers are not carried over.",
                   },
                   {
                     step: "04",
-                    title: "Download Undetectable Image",
-                    desc: "The processed image is encoded as a fresh JPEG with optimized compression (85-95% quality). All AI metadata traces eliminated, ready for any platform.",
+                    title: "Download Clean Image",
+                    desc: "The processed image is encoded as a fresh JPEG with optimized compression (85-95% quality), ready for review, publishing, or sharing.",
                   },
                 ].map(({ step, title, desc }) => (
                   <div key={step} className="flex gap-4">
@@ -2115,7 +2177,7 @@ export default function Home() {
             <div className="relative">
               <img
                 src="https://d2xsxph8kpxj0f.cloudfront.net/310419663030568626/8ywQyTwM8J3DhQPbxGgFvw/blankai-process-visual-hhKuwaWRNPYMvwN9oyzQFA.webp"
-                alt="BlankAI process: removing AI metadata and pixel fingerprints from images"
+                alt="BlankAI process for removing AI content credentials and image metadata"
                 className="w-full rounded-xl border border-border"
                 loading="lazy"
                 width="600"
@@ -2126,10 +2188,10 @@ export default function Home() {
                   <CheckCircle2 className="w-6 h-6 text-green-400" />
                   <div>
                     <div className="font-display font-bold text-foreground text-sm">
-                      Undetectable
+                      Clean Export Ready
                     </div>
                     <div className="text-muted-foreground text-xs font-mono-custom">
-                      All AI traces removed
+                      Metadata removed locally
                     </div>
                   </div>
                 </div>
@@ -2177,12 +2239,12 @@ export default function Home() {
               TOOL COMPARISON
             </div>
             <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Why BlankAI is the Best AI Metadata Remover
+              Why Teams Choose BlankAI for Metadata Cleaning
             </h2>
             <p className="text-muted-foreground text-base max-w-2xl">
-              See how BlankAI compares to other metadata removal tools. We're
-              the only tool that removes AI pixel fingerprints at the hash
-              level.
+              Compare BlankAI with other metadata tools. The focus here is
+              private, browser-only cleaning for AI-related metadata and
+              content credentials.
             </p>
           </div>
           <div className="overflow-x-auto rounded-xl border border-border">
@@ -2262,7 +2324,7 @@ export default function Home() {
               {
                 icon: Star,
                 badge: "FREE",
-                title: "Free AI Pixel Remover",
+                title: "Free Metadata Cleaner",
                 desc: "Core functionality is completely free. Remove AI metadata from up to 20 images at once without any hidden costs or subscriptions.",
               },
             ].map(({ icon: Icon, badge, title, desc }) => (
@@ -2301,8 +2363,8 @@ export default function Home() {
             Compatible with All Major Platforms
           </h2>
           <p className="text-muted-foreground text-base mb-8 max-w-xl mx-auto">
-            Clean your AI-generated images before uploading to any platform that
-            may flag or restrict AI content.
+            Clean image metadata before uploading assets to platforms,
+            marketplaces, or client review workflows.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             {[
@@ -2339,11 +2401,11 @@ export default function Home() {
               FREQUENTLY ASKED QUESTIONS
             </div>
             <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Everything About AI Metadata Removal
+              Everything About Content Credentials & Metadata Removal
             </h2>
             <p className="text-muted-foreground text-base">
-              Common questions about removing AI pixel metadata, making images
-              undetectable, and how BlankAI works.
+              Common questions about removing AI content credentials, EXIF,
+              C2PA, and other image metadata with BlankAI.
             </p>
           </div>
           <div className="space-y-3">
@@ -2389,14 +2451,22 @@ export default function Home() {
                 <EyeOff className="w-7 h-7 text-navy" />
               </div>
               <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
-                Make Your AI Images Undetectable
+                Clean AI Content Credentials in Seconds
               </h2>
               <p className="text-muted-foreground text-base mb-8">
-                Join 50,000+ creators using BlankAI to remove AI metadata and
-                pixel fingerprints. Free, instant, and 100% private.
+                Join 50,000+ creators using BlankAI to remove AI metadata,
+                content credentials, and hidden file data. Free, instant, and
+                100% private.
               </p>
               <a
                 href="#upload"
+                onClick={() =>
+                  trackEvent("cta_click", {
+                    page: "home",
+                    location: "final_cta",
+                    target: "upload",
+                  })
+                }
                 className="inline-flex items-center gap-2 px-8 py-4 rounded-xl gradient-cyan text-navy font-bold text-base hover:opacity-90 transition-opacity animate-pulse-glow"
               >
                 <Upload className="w-5 h-5" />

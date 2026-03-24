@@ -363,11 +363,11 @@ const faqs = [
   },
   {
     q: "What does the tolerance slider do?",
-    a: "JPEG compression introduces tiny random pixel variations even between 'identical' images. The tolerance slider (0–30) lets you filter out this noise so you can focus on meaningful differences like metadata removal or pixel fingerprint changes."
+    a: "JPEG compression introduces tiny random pixel variations even between 'identical' images. The tolerance slider (0–30) lets you filter out this noise so you can focus on meaningful differences such as re-encoding changes and metadata-cleaning output."
   },
   {
     q: "Why do identical-looking JPEGs show differences?",
-    a: "JPEG is a lossy format. Re-saving a JPEG — even at the same quality — introduces compression artifacts that change pixel values by 1–5. BlankAI intentionally uses this property to modify the AI pixel fingerprint while keeping the image visually identical."
+    a: "JPEG is a lossy format. Re-saving a JPEG — even at the same quality — introduces compression artifacts that change pixel values by 1–5. BlankAI relies on fresh re-encoding for cleaned exports, so small pixel-level differences are expected even when the image still looks visually the same."
   },
   {
     q: "How do I verify that AI metadata was removed?",
@@ -588,7 +588,7 @@ export default function ImageDiff() {
               <p className="text-cyan font-semibold text-sm">Verify Clean Mode</p>
               <p className="text-muted-foreground text-xs mt-0.5">
                 Your cleaned image has been pre-loaded as <strong className="text-foreground">Image B</strong>.
-                Upload your <strong className="text-foreground">original image as Image A</strong> to confirm metadata removal and pixel fingerprint change.
+                Upload your <strong className="text-foreground">original image as Image A</strong> to confirm metadata removal and compare the fresh cleaned export.
               </p>
             </div>
           </div>
@@ -788,7 +788,7 @@ export default function ImageDiff() {
               {slotA.hash !== slotB.hash && (
                 <p className="text-green-400 text-xs flex items-center gap-1.5 mt-1">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  Hashes differ — pixel fingerprint successfully modified
+                  Hashes differ — fresh cleaned export confirmed
                 </p>
               )}
             </div>
@@ -798,7 +798,7 @@ export default function ImageDiff() {
           <div className="mt-4 flex flex-col sm:flex-row items-center gap-3 p-4 rounded-xl border border-cyan/20 bg-cyan/5">
             <div className="flex-1">
               <p className="font-semibold text-foreground text-sm">Ready to clean your AI images?</p>
-              <p className="text-muted-foreground text-xs mt-0.5">Remove EXIF, C2PA, GPS and pixel fingerprints — free, instant, no uploads.</p>
+              <p className="text-muted-foreground text-xs mt-0.5">Remove EXIF, C2PA, GPS, and hidden image metadata with a fresh local export — free, instant, no uploads.</p>
             </div>
             <Link
               href="/"
@@ -833,7 +833,7 @@ export default function ImageDiff() {
                   { icon: Columns2, title: "Side by Side", desc: "Classic split view. Both images displayed at full resolution for direct visual comparison." },
                   { icon: Layers, title: "Overlay", desc: "Changed pixels highlighted in red on top of the original image. Instantly spot modifications." },
                   { icon: SlidersHorizontal, title: "Slider", desc: "Drag the divider to reveal before/after. Perfect for subtle changes and metadata verification." },
-                  { icon: Flame, title: "Heatmap", desc: "Color-coded intensity map. Brighter red = larger pixel delta. Reveals AI fingerprint modifications." },
+                  { icon: Flame, title: "Heatmap", desc: "Color-coded intensity map. Brighter red = larger pixel delta. Useful for spotting re-encoding changes in cleaned exports." },
                 ].map(({ icon: Icon, title, desc }) => (
                   <div key={title} className="p-3 rounded-lg border border-border bg-card/50">
                     <Icon className="w-4 h-4 text-cyan mb-2" />
@@ -847,7 +847,7 @@ export default function ImageDiff() {
             <div>
               <h2 className="font-display font-bold text-xl text-foreground mb-3">Verify AI Metadata Removal — The Proof Is in the Pixels</h2>
               <p className="text-muted-foreground text-sm leading-relaxed">
-                When you process an image with BlankAI's <strong className="text-foreground">AI metadata remover</strong>, the tool strips EXIF, GPS, XMP, IPTC, and C2PA Content Credentials, then modifies the pixel fingerprint. The Image Diff tool lets you <strong className="text-foreground">verify this removal</strong> by comparing the original and cleaned versions. A successful clean shows: (1) different SHA-256 hashes, (2) size reduction, (3) scattered pixel changes in the heatmap, and (4) zero metadata fields in Image B.
+                When you process an image with BlankAI's <strong className="text-foreground">AI metadata remover</strong>, the tool creates a fresh cleaned export without EXIF, GPS, XMP, IPTC, and C2PA content credentials. The Image Diff tool lets you <strong className="text-foreground">verify this removal</strong> by comparing the original and cleaned versions. A successful clean usually shows: (1) different SHA-256 hashes, (2) size or encoding changes, (3) scattered pixel changes in the heatmap, and (4) fewer metadata fields in the cleaned output.
               </p>
             </div>
 
@@ -865,7 +865,7 @@ export default function ImageDiff() {
               <h3 className="font-display font-bold text-foreground text-sm mb-3">Related Tools</h3>
               <div className="space-y-2">
                 {[
-                  { href: "/", label: "AI Metadata Remover", desc: "Strip EXIF, C2PA, pixel fingerprints" },
+                  { href: "/", label: "AI Metadata Remover", desc: "Remove EXIF, C2PA, and hidden metadata" },
                   { href: "/image-diff", label: "Image Diff Tool", desc: "Compare images pixel-by-pixel" },
                 ].map(({ href, label, desc }) => (
                   <Link key={href} href={href} className="flex items-start gap-2 p-2.5 rounded-lg hover:bg-muted/20 transition-colors group">

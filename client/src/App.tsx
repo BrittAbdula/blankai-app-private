@@ -7,7 +7,9 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import ImageDiff from "./pages/ImageDiff";
+import ImageMetadataRemover from "./pages/ImageMetadataRemover";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import RemoveAIContentCredentials from "./pages/RemoveAIContentCredentials";
 import TermsOfService from "./pages/TermsOfService";
 import Blog from "./pages/Blog";
 import BlogPost from "./pages/BlogPost";
@@ -18,6 +20,8 @@ function Router() {
     <Switch>
       <Route path={"/"} component={Home} />
       <Route path={"/image-diff"} component={ImageDiff} />
+      <Route path={"/image-metadata-remover"} component={ImageMetadataRemover} />
+      <Route path={"/remove-ai-content-credentials"} component={RemoveAIContentCredentials} />
       <Route path={"/blog"} component={Blog} />
       <Route path={"/blog/:slug"} component={BlogPost} />
       <Route path={"/exif-viewer"} component={ExifViewer} />

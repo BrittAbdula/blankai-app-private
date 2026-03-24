@@ -1,7 +1,7 @@
 /**
  * BlankAI — /blog
  * Blog listing page: SEO-optimized, category filters, EEAT-compliant article cards
- * Target keywords: ai metadata removal, remove ai metadata, c2pa remover, undetectable ai image
+ * Target keywords: ai metadata removal, remove ai metadata, c2pa remover, content credentials
  */
 import { useState } from "react";
 import { Link } from "wouter";
@@ -16,10 +16,10 @@ export default function Blog() {
 
   usePageMeta({
     title: "Blog — AI Metadata Removal Guides & Tutorials | BlankAI",
-    description: "Expert guides on removing AI metadata, C2PA credentials, EXIF data, and pixel fingerprints from AI-generated images. Learn how to make images undetectable.",
+    description: "Plain-language guides on content credentials, AI metadata, C2PA, EXIF data, and hidden image metadata. Learn how to inspect and remove image metadata in your browser.",
     canonical: "https://blankai.app/blog",
     ogTitle: "BlankAI Blog — AI Metadata Removal Guides & Tutorials",
-    ogDescription: "Expert guides on removing AI metadata, C2PA credentials, EXIF data, and pixel fingerprints from AI-generated images.",
+    ogDescription: "Plain-language guides on content credentials, AI metadata, C2PA credentials, EXIF data, and hidden image metadata.",
   });
 
   const filtered = activeCategory === "All"
@@ -37,7 +37,7 @@ export default function Blog() {
         "@type": "Blog",
         "name": "BlankAI Blog — AI Metadata Removal Guides",
         "url": "https://blankai.app/blog",
-        "description": "Expert guides on removing AI metadata, C2PA credentials, EXIF data, and pixel fingerprints from AI-generated images.",
+        "description": "Plain-language guides on content credentials, AI metadata, C2PA credentials, EXIF data, and hidden image metadata.",
         "publisher": {
           "@type": "Organization",
           "name": "BlankAI",
@@ -65,11 +65,11 @@ export default function Blog() {
               <span className="text-cyan text-sm font-mono-custom tracking-wider uppercase">Knowledge Base</span>
             </div>
             <h1 className="font-display font-black text-4xl md:text-5xl text-foreground leading-tight mb-4">
-              AI Metadata Removal<br />
+              AI Metadata & Content Credentials<br />
               <span className="text-cyan">Guides & Tutorials</span>
             </h1>
             <p className="text-muted-foreground text-lg leading-relaxed max-w-2xl">
-              Expert guides on removing AI metadata, C2PA credentials, EXIF data, and pixel fingerprints from Midjourney, DALL-E, Stable Diffusion, and Adobe Firefly images. Written by researchers and engineers with hands-on experience.
+              Plain-language guides on content credentials, C2PA, EXIF data, and hidden image metadata from Midjourney, DALL-E, Stable Diffusion, and Adobe Firefly images. Written by researchers and engineers with hands-on experience.
             </p>
           </div>
         </div>
@@ -204,10 +204,10 @@ export default function Blog() {
           <div className="rounded-2xl border border-cyan/20 bg-gradient-to-r from-cyan/5 to-transparent p-8 flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
               <h2 className="font-display font-bold text-xl text-foreground mb-2">
-                Ready to remove AI metadata?
+                Ready to inspect or clean image metadata?
               </h2>
               <p className="text-muted-foreground text-sm">
-                Apply what you've learned — strip EXIF, C2PA, and pixel fingerprints from your images free, instantly, in your browser.
+                Apply what you've learned — inspect and remove EXIF, C2PA, and content credentials free, instantly, in your browser.
               </p>
             </div>
             <a

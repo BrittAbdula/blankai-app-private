@@ -8,13 +8,25 @@
 
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { EyeOff, Zap, Menu, X, ChevronRight, Github } from "lucide-react";
+import {
+  EyeOff,
+  Zap,
+  Menu,
+  X,
+  ChevronRight,
+  Github,
+  ChevronDown,
+  Shield,
+  FileText,
+  BookOpen,
+} from "lucide-react";
 
 interface NavLink {
   label: string;
   href: string;
   external?: boolean;
   highlight?: boolean;
+  match?: "exact" | "prefix";
 }
 
 interface SiteHeaderProps {
@@ -34,7 +46,15 @@ const anchorLinks: NavLink[] = [
 const toolLinks: NavLink[] = [
   { label: "Image Diff", href: "/image-diff", highlight: true },
   { label: "EXIF Viewer", href: "/exif-viewer", highlight: true },
-  { label: "Blog", href: "/blog" },
+];
+
+const guideLinks: NavLink[] = [
+  {
+    label: "Remove AI Content Credentials",
+    href: "/remove-ai-content-credentials",
+  },
+  { label: "Image Metadata Remover", href: "/image-metadata-remover" },
+  { label: "Blog", href: "/blog", match: "prefix" },
 ];
 
 const repoUrl = "https://github.com/BrittAbdula/blankai-app";
@@ -68,6 +88,9 @@ export default function SiteHeader({
   }, [open]);
 
   const isHome = location === "/";
+  const isLinkActive = (link: NavLink) =>
+    link.match === "prefix" ? location.startsWith(link.href) : location === link.href;
+  const guidesActive = guideLinks.some(isLinkActive);
 
   return (
     <>
@@ -118,12 +141,7 @@ export default function SiteHeader({
               ))}
             {/* Tool links — always shown */}
             {toolLinks.map(link => {
-              const isActive =
-                link.href === "/blog"
-                  ? location.startsWith("/blog")
-                  : location === link.href ||
-                    (link.href === "/exif-viewer" &&
-                      location === "/exif-viewer");
+              const isActive = isLinkActive(link);
               return (
                 <Link
                   key={link.label}
@@ -176,6 +194,55 @@ export default function SiteHeader({
                 </Link>
               );
             })}
+            <div className="relative group">
+              <button
+                type="button"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-all font-medium ${
+                  guidesActive
+                    ? "text-cyan bg-cyan/10"
+                    : "text-cyan/70 hover:text-cyan hover:bg-cyan/5"
+                }`}
+                aria-haspopup="true"
+              >
+                Guides
+                <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" />
+              </button>
+              <div className="pointer-events-none absolute right-0 top-full mt-2 w-72 translate-y-1 rounded-xl border border-border/70 bg-background/98 p-2 opacity-0 shadow-xl shadow-black/20 backdrop-blur-md transition-all duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100">
+                {guideLinks.map(link => {
+                  const isActive = isLinkActive(link);
+                  const Icon =
+                    link.href === "/remove-ai-content-credentials"
+                      ? Shield
+                      : link.href === "/image-metadata-remover"
+                        ? FileText
+                        : BookOpen;
+
+                  return (
+                    <Link
+                      key={link.label}
+                      href={link.href}
+                      className={`flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors ${
+                        isActive
+                          ? "bg-cyan/10 text-cyan"
+                          : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                      }`}
+                    >
+                      <Icon className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                      <div>
+                        <div className="text-sm font-medium">{link.label}</div>
+                        <div className="text-[11px] opacity-70">
+                          {link.href === "/remove-ai-content-credentials"
+                            ? "Focused page for content credentials"
+                            : link.href === "/image-metadata-remover"
+                              ? "Broader metadata cleaning guide"
+                              : "Educational guides and explainers"}
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           {/* Right side: CTA + hamburger */}
@@ -385,6 +452,54 @@ export default function SiteHeader({
                 </span>
               )}
             </Link>
+          </div>
+
+          <div className="pt-2 pb-2 border-t border-border/50">
+            <p className="text-[10px] font-mono-custom text-muted-foreground/50 uppercase tracking-wider px-3 mb-2">
+              Guides
+            </p>
+            {[
+              {
+                href: "/remove-ai-content-credentials",
+                label: "Remove AI Content Credentials",
+                icon: <Shield className="w-4 h-4" />,
+                desc: "Focused C2PA and provenance page",
+              },
+              {
+                href: "/image-metadata-remover",
+                label: "Image Metadata Remover",
+                icon: <FileText className="w-4 h-4" />,
+                desc: "Broad metadata cleaning guide",
+              },
+            ].map(link => {
+              const isActive = location === link.href;
+
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setOpen(false)}
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-lg transition-all text-sm ${
+                    isActive
+                      ? "text-cyan bg-cyan/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {link.icon}
+                    <div>
+                      <div>{link.label}</div>
+                      <div className="text-[10px] opacity-60">{link.desc}</div>
+                    </div>
+                  </div>
+                  {isActive && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan/20 text-cyan font-bold">
+                      ACTIVE
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
           </div>
 
           {/* Legal */}

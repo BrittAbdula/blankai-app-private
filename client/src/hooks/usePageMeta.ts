@@ -65,11 +65,11 @@ export function usePageMeta({
     // Cleanup: restore homepage defaults when unmounting
     return () => {
       document.title =
-        "BlankAI — Remove AI Metadata & Make Images Undetectable | Free AI Pixel Remover";
+        "BlankAI — Remove AI Content Credentials & Image Metadata";
       setMeta(
         "name",
         "description",
-        "Free AI metadata remover. Strip EXIF, C2PA & AI pixel fingerprints from images instantly. Make AI images undetectable — 100% browser-based, zero uploads."
+        "Privacy-first image metadata remover. Strip EXIF, XMP, IPTC, GPS, and C2PA content credentials from images instantly in your browser with zero uploads."
       );
       const el = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
       if (el) el.href = "https://blankai.app/";

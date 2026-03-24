@@ -184,7 +184,7 @@ export default function ExifViewer() {
             {
               "@type": "Question",
               "name": "How do I remove the metadata after viewing it?",
-              "acceptedAnswer": { "@type": "Answer", "text": "Use BlankAI's free AI Metadata Remover tool on the homepage. It strips all EXIF, GPS, C2PA, and AI pixel fingerprints from your images in seconds." }
+              "acceptedAnswer": { "@type": "Answer", "text": "Use BlankAI's browser-based image metadata remover on the homepage. It creates a fresh export that removes EXIF, GPS, XMP, IPTC, and C2PA content credentials from the output file." }
             }
           ]
         }
@@ -1027,8 +1027,8 @@ export default function ExifViewer() {
                             Want to remove all this metadata?
                           </h3>
                           <p className="text-xs text-muted-foreground">
-                            BlankAI strips EXIF, GPS, C2PA, and AI pixel fingerprints in seconds
-                            — free, no account needed.
+                            BlankAI creates a fresh cleaned export that removes EXIF,
+                            GPS, XMP, IPTC, and C2PA metadata in seconds.
                           </p>
                         </div>
                         <button
@@ -1107,7 +1107,8 @@ export default function ExifViewer() {
             <p className="text-xs text-muted-foreground text-center mb-4">More BlankAI Tools</p>
             <div className="flex flex-wrap justify-center gap-3">
               {[
-                { href: "/", label: "AI Metadata Remover", icon: <Zap className="w-3.5 h-3.5" />, desc: "Strip all metadata" },
+                { href: "/", label: "AI Metadata Remover", icon: <Zap className="w-3.5 h-3.5" />, desc: "Create a fresh cleaned export" },
+                { href: "/remove-ai-content-credentials", label: "Content Credentials Guide", icon: <Shield className="w-3.5 h-3.5" />, desc: "Focused C2PA removal page" },
                 { href: "/image-diff", label: "Image Diff Tool", icon: <Eye className="w-3.5 h-3.5" />, desc: "Compare images" },
                 { href: "/exif-viewer", label: "EXIF Viewer", icon: <Search className="w-3.5 h-3.5" />, desc: "Read + edit metadata", active: true },
               ].map(tool => (
@@ -1212,7 +1213,7 @@ export default function ExifViewer() {
                 },
                 {
                   q: "How do I remove the metadata after viewing it?",
-                  a: "Use BlankAI's free AI Metadata Remover on the homepage. It strips all EXIF, GPS, C2PA, and AI pixel fingerprints from your images in seconds — no account required."
+                  a: "Use BlankAI's image metadata remover on the homepage. It creates a fresh export that removes EXIF, GPS, XMP, IPTC, and C2PA metadata from the output file — no account required."
                 },
                 {
                   q: "What is a C2PA manifest?",
@@ -1240,7 +1241,7 @@ export default function ExifViewer() {
               Found metadata you want to remove?
             </h2>
             <p className="text-muted-foreground text-sm mb-6 leading-relaxed">
-              BlankAI's free metadata remover strips everything — EXIF, GPS, C2PA, AI pixel fingerprints — in seconds. No account, no upload limits, no watermarks.
+              BlankAI's free metadata remover creates a fresh cleaned export without EXIF, GPS, XMP, IPTC, or C2PA content credentials. No account, no upload limits, no watermarks.
             </p>
             <button
               type="button"

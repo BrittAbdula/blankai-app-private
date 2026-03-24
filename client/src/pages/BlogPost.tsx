@@ -170,7 +170,7 @@ export default function BlogPostPage() {
   // Dynamic canonical + meta per article
   usePageMeta({
     title: post ? `${post.title} | BlankAI Blog` : "BlankAI Blog",
-    description: post?.description ?? "Expert guides on removing AI metadata, C2PA credentials, EXIF data, and pixel fingerprints from AI-generated images.",
+    description: post?.description ?? "Plain-language guides on content credentials, AI metadata, C2PA, EXIF data, and hidden image metadata.",
     canonical: post ? `https://blankai.app/blog/${post.slug}` : "https://blankai.app/blog",
     ogTitle: post ? `${post.title} | BlankAI Blog` : "BlankAI Blog",
     ogDescription: post?.description,
@@ -430,10 +430,10 @@ export default function BlogPostPage() {
                   <span className="font-display font-bold text-foreground text-sm">Try BlankAI Free</span>
                 </div>
                 <p className="text-muted-foreground text-xs leading-relaxed mb-4">
-                  Remove EXIF, C2PA, and pixel fingerprints from your AI images — entirely in your browser, zero uploads.
+                  Remove EXIF, C2PA, content credentials, and hidden image metadata in your browser with zero uploads.
                 </p>
                 <ul className="space-y-1.5 mb-4">
-                  {["EXIF & GPS removal", "C2PA credential strip", "Pixel hash modification", "HEIC / PNG / JPEG / WebP", "Up to 20 images at once"].map((f) => (
+                  {["EXIF & GPS removal", "C2PA credential strip", "Fresh cleaned export", "HEIC / PNG / JPEG / WebP", "Up to 20 images at once"].map((f) => (
                     <li key={f} className="flex items-center gap-2 text-xs text-muted-foreground">
                       <CheckCircle2 className="w-3 h-3 text-cyan flex-shrink-0" />
                       {f}
@@ -520,5 +520,4 @@ export default function BlogPostPage() {
     </div>
   );
 }
-
 

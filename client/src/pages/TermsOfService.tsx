@@ -136,7 +136,7 @@ export default function TermsOfService() {
               THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
             </p>
             <p>
-              We do not warrant that: (a) the Service will be uninterrupted or error-free; (b) defects will be corrected; (c) the Service is free of viruses or other harmful components; (d) the results obtained from using the Service will be accurate or reliable; or (e) processed images will be undetectable by all AI detection systems, as detection technology continuously evolves.
+              We do not warrant that: (a) the Service will be uninterrupted or error-free; (b) defects will be corrected; (c) the Service is free of viruses or other harmful components; (d) the results obtained from using the Service will be accurate or reliable; or (e) processed images will satisfy every platform's detection, labeling, or policy requirements, as those systems continuously evolve.
             </p>
           </Section>
 

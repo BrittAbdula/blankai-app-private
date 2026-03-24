@@ -1,6 +1,6 @@
 /**
  * BlankAI Blog Posts Data
- * 6 EEAT-compliant articles about AI metadata removal
+ * 7 EEAT-compliant articles about AI metadata removal
  * Dates: January–March 2026
  * Each article naturally guides users to BlankAI tools
  */
@@ -74,7 +74,7 @@ export const blogPosts: BlogPost[] = [
     featured: true,
     coverGradient: "linear-gradient(135deg, oklch(0.15 0.04 220) 0%, oklch(0.22 0.08 260) 100%)",
     coverImage: "https://d2xsxph8kpxj0f.cloudfront.net/310419663030568626/8ywQyTwM8J3DhQPbxGgFvw/blog-cover-ai-metadata-WX4cGQDXhdYkEGdodqesgX.webp",
-    relatedSlugs: ["how-to-remove-c2pa-metadata", "remove-exif-data-complete-guide", "undetectable-ai-images-guide"],
+    relatedSlugs: ["what-are-content-credentials", "how-to-remove-c2pa-metadata", "remove-exif-data-complete-guide"],
     sections: [
       { type: "p", content: "When you generate an image using Midjourney, DALL-E 3, Stable Diffusion, or any modern AI art tool, you receive what appears to be a clean JPEG or PNG file. But embedded within that file — invisible to the naked eye, hidden in binary structures that most image viewers never display — is a detailed record of how that image was created. This hidden record is what researchers and platform engineers call AI metadata, and in 2026, it has become one of the most consequential privacy issues facing digital creators." },
       { type: "p", content: "Understanding AI metadata is no longer optional for anyone who creates, publishes, or monetizes AI-generated images. Platforms are increasingly using this data to flag, restrict, or demonetize content. Clients and employers are using it to audit creative work. And detection algorithms are becoming sophisticated enough to cross-reference metadata fingerprints across millions of images. This guide explains exactly what AI metadata is, where it lives inside your files, and what you can do about it." },
@@ -104,7 +104,7 @@ export const blogPosts: BlogPost[] = [
       { type: "p", content: "For freelance designers, stock photographers, and content creators who use AI tools as part of their workflow, this creates a significant practical problem. The metadata was never intended to harm creators; it was designed for transparency and attribution. But in a competitive market where clients may not understand or accept AI-assisted work, the involuntary disclosure of your tools and methods can have real financial consequences." },
       { type: "h2", content: "The Pixel Fingerprint Problem" },
       { type: "p", content: "Beyond file-level metadata, there is a more subtle form of AI identification that operates at the pixel level. AI image generators produce images with characteristic statistical patterns in their pixel distributions — patterns that differ from photographs taken with cameras. These patterns arise from the diffusion process itself: the way noise is added and removed during generation creates subtle artifacts in the frequency domain that are invisible to human eyes but detectable by trained classifiers." },
-      { type: "p", content: "This means that simply stripping EXIF and C2PA data is not sufficient to make an AI image undetectable. The pixel fingerprint remains. Effective metadata removal must therefore include a pixel-level modification step that disrupts these statistical patterns without visibly degrading the image. This is precisely what tools like BlankAI are designed to do: not just strip file-level metadata, but also apply imperceptible pixel modifications that change the image's statistical signature." },
+      { type: "p", content: "This means that simply stripping EXIF and C2PA data is not sufficient to remove every AI-identifying signal. The pixel fingerprint remains. Effective metadata removal must therefore include a pixel-level modification step that disrupts these statistical patterns without visibly degrading the image. This is precisely what tools like BlankAI are designed to do: not just strip file-level metadata, but also apply imperceptible pixel modifications that change the image's statistical signature." },
       {
         type: "callout",
         variant: "tool",
@@ -116,13 +116,60 @@ export const blogPosts: BlogPost[] = [
       { type: "p", content: "A complete AI metadata removal process must address all three layers described above. At the file level, this means stripping EXIF fields, XMP packets, PNG text chunks, and C2PA credential blocks. At the pixel level, it means applying modifications that change the image's statistical fingerprint without introducing visible artifacts. The gold standard approach uses the HTML5 Canvas API to redraw the image — a process that inherently strips all file-level metadata because Canvas only works with pixel data — combined with a targeted pixel modification algorithm." },
       { type: "p", content: "The Canvas approach also has the advantage of being entirely client-side. Because the image is processed in your browser using JavaScript and the Canvas API, it never needs to leave your device. This is a critical privacy consideration: uploading images to a third-party server for metadata removal creates its own privacy risk, since you are now trusting that server with your original files." },
       { type: "h2", content: "Frequently Asked Questions" },
-      { type: "h3", content: "Does removing AI metadata make an image 100% undetectable?" },
-      { type: "p", content: "Metadata removal significantly reduces detectability, but no method provides an absolute guarantee. File-level metadata removal eliminates the most obvious signals. Pixel-level fingerprint modification disrupts the statistical patterns that AI detection classifiers rely on. However, as detection technology evolves, new methods may emerge. The goal of metadata removal is to remove the identifiable signals that currently exist, not to make a permanent, future-proof guarantee." },
+      { type: "h3", content: "Does removing AI metadata eliminate every detectable signal?" },
+      { type: "p", content: "No single method can guarantee that every possible signal is gone. File-level metadata removal eliminates the most obvious provenance data. Pixel-level fingerprint modification can reduce additional image signatures. The practical goal is to remove the metadata most platforms can read and the obvious machine-readable traces that are currently present." },
       { type: "h3", content: "Is removing AI metadata legal?" },
       { type: "p", content: "In most jurisdictions, removing metadata from images you have generated or own is legal. The legal questions around AI-generated images are complex and evolving, but metadata removal itself — as a technical operation on files you possess — is generally not restricted. However, using metadata-cleaned images in contexts where disclosure is legally required (such as certain advertising standards) may create separate legal obligations. Always consult a legal professional for advice specific to your situation." },
       { type: "h3", content: "Will platforms be able to detect metadata removal in the future?" },
       { type: "p", content: "C2PA's cryptographic signing means that the removal of credentials can potentially be detected — the absence of expected credentials is itself a signal. However, this only applies if the platform knows to look for credentials and if the image was originally generated by a tool that embeds them. For images where credentials were never present, or where the pixel fingerprint has been modified, detection becomes significantly more difficult." },
       { type: "cta", variant: "tool", content: "Ready to remove AI metadata from your images? BlankAI processes up to 20 images at once, entirely in your browser — free, private, and instant.", ctaText: "Try BlankAI Free", ctaHref: "/#upload" },
+    ],
+  },
+
+  // ─── Article 2 ───────────────────────────────────────────────────────────────
+  {
+    slug: "what-are-content-credentials",
+    title: "What Are Content Credentials? A Plain-English Guide to AI Image Labels",
+    description: "Content credentials are provenance labels embedded in some AI-generated images. Learn what they record, where they appear, and how they differ from EXIF and other metadata.",
+    date: "January 15, 2026",
+    dateISO: "2026-01-15",
+    author: AUTHOR_PRIYA,
+    category: "Education",
+    tags: ["content credentials", "c2pa", "ai metadata", "image labels", "metadata"],
+    readTime: 8,
+    featured: true,
+    coverGradient: "linear-gradient(135deg, oklch(0.16 0.06 210) 0%, oklch(0.23 0.08 250) 100%)",
+    relatedSlugs: ["what-is-ai-metadata-and-why-it-matters", "how-to-remove-c2pa-metadata", "remove-exif-data-complete-guide"],
+    sections: [
+      { type: "p", content: "Content credentials are a way to attach provenance information to an image. In plain language, they are labels that can tell you how a file was created, what tool made it, and sometimes what edits were applied along the way. You will often see them discussed in the same conversation as C2PA, because C2PA is the technical standard behind many content-credential systems." },
+      { type: "p", content: "For most people, the important question is not the standard name. It is what the label means when you open an image online or in a viewer. If a file contains content credentials, it may expose the creator tool, timestamps, edit history, or other provenance data. That is useful for transparency, but it also means the file may reveal more than the person sharing it intended." },
+      { type: "h2", content: "What Do Content Credentials Usually Contain?" },
+      { type: "p", content: "The exact fields depend on the tool that created the image, but content credentials commonly record the source application, creation time, and a chain of actions or edits. In some cases they also include the name of the model or service that generated the file. The technical details vary, but the broad idea is the same: the image carries a machine-readable record of its origin." },
+      { type: "h2", content: "How Are They Different From EXIF?" },
+      { type: "p", content: "EXIF is a long-standing metadata format used by cameras and editors. Content credentials are newer and are designed specifically for provenance and authenticity. EXIF can store things like camera make, GPS data, and software fields. Content credentials are usually more structured and can describe a file's creation or edit history in more detail." },
+      { type: "h2", content: "Where Will You See Them?" },
+      { type: "p", content: "Not every image has content credentials. They appear most often in images exported by tools that support provenance metadata, especially newer AI generators and editing apps. Some platforms also display a visible badge or label when credentials are present, while others keep the data hidden unless you inspect the file directly." },
+      {
+        type: "callout",
+        variant: "tool",
+        content: "BlankAI includes tools for inspecting image metadata locally in your browser, so you can see what is embedded before you decide what to keep or remove.",
+        ctaText: "Open EXIF Viewer →",
+        ctaHref: "/exif-viewer",
+      },
+      { type: "h2", content: "Why Do Content Credentials Matter?" },
+      { type: "p", content: "They matter because they can influence how an image is treated by clients, platforms, and publishers. For creators, that can be helpful when transparency is the goal. It can also be a privacy issue when the file reveals tool usage or workflow details that the creator did not want shared." },
+      { type: "h2", content: "How To Remove or Avoid Them" },
+      { type: "p", content: "The most reliable way to remove file-level provenance data is to re-encode the image from pixel data rather than trying to edit the metadata in place. That approach produces a fresh file and avoids carrying over the original provenance containers. BlankAI uses that browser-only workflow for supported image types." },
+      { type: "h3", content: "Quick Checks" },
+      {
+        type: "ol",
+        items: [
+          "Inspect the image in a metadata viewer to see whether content credentials are present.",
+          "Check whether the file also contains EXIF, XMP, IPTC, or PNG text chunks.",
+          "If you need a clean output, process the image with a tool that creates a fresh file from pixel data.",
+        ],
+      },
+      { type: "cta", variant: "tool", content: "Need to inspect or clean image metadata? Start with BlankAI's browser-only tools and remove the data you do not want to share.", ctaText: "Try BlankAI Free", ctaHref: "/#upload" },
     ],
   },
 
@@ -140,7 +187,7 @@ export const blogPosts: BlogPost[] = [
     featured: true,
     coverGradient: "linear-gradient(135deg, oklch(0.14 0.05 240) 0%, oklch(0.20 0.10 200) 100%)",
     coverImage: "https://d2xsxph8kpxj0f.cloudfront.net/310419663030568626/8ywQyTwM8J3DhQPbxGgFvw/blog-cover-c2pa-JSGUG2a4mCuHdzMsVehEJr.webp",
-    relatedSlugs: ["what-is-ai-metadata-and-why-it-matters", "remove-exif-data-complete-guide", "midjourney-metadata-removal"],
+    relatedSlugs: ["what-is-ai-metadata-and-why-it-matters", "what-are-content-credentials", "remove-exif-data-complete-guide"],
     sections: [
       { type: "p", content: "If you have ever opened a DALL-E 3 image in a tool like ExifTool or Adobe Bridge, you may have noticed a block of data labeled 'C2PA' or 'Content Credentials' that looks nothing like ordinary EXIF fields. This is the Coalition for Content Provenance and Authenticity standard — a cryptographically signed provenance system that has become the most technically sophisticated form of AI metadata in widespread use. In 2026, C2PA credentials are embedded by default in images from DALL-E 3, Adobe Firefly, Bing Image Creator, and an expanding list of other AI tools." },
       { type: "p", content: "This guide is written for creators, developers, and privacy-conscious users who need to understand exactly what C2PA is, what information it contains, and how to remove it completely from their images. We will cover the technical structure of C2PA data, why standard EXIF stripping tools fail to remove it, and the correct approach to complete credential removal." },
@@ -207,7 +254,7 @@ export const blogPosts: BlogPost[] = [
     ],
   },
 
-  // ─── Article 3 ───────────────────────────────────────────────────────────────
+  // ─── Article 4 ───────────────────────────────────────────────────────────────
   {
     slug: "remove-exif-data-complete-guide",
     title: "How to Remove EXIF Data from Images: The Complete 2026 Guide",
@@ -221,7 +268,7 @@ export const blogPosts: BlogPost[] = [
     featured: false,
     coverGradient: "linear-gradient(135deg, oklch(0.13 0.06 260) 0%, oklch(0.19 0.09 230) 100%)",
     coverImage: "https://d2xsxph8kpxj0f.cloudfront.net/310419663030568626/8ywQyTwM8J3DhQPbxGgFvw/blog-cover-exif-R4PTUbhiuGmQYUM7sT4Xvv.webp",
-    relatedSlugs: ["what-is-ai-metadata-and-why-it-matters", "how-to-remove-c2pa-metadata", "undetectable-ai-images-guide"],
+    relatedSlugs: ["what-is-ai-metadata-and-why-it-matters", "what-are-content-credentials", "how-to-remove-c2pa-metadata"],
     sections: [
       { type: "p", content: "EXIF data is the invisible passenger in every digital image. Originally designed to help photographers review their camera settings after a shoot, EXIF has evolved into a comprehensive record of how, when, and where an image was created — and in the age of AI image generation, it has become a detailed log of which AI tool you used and exactly how you used it. Removing EXIF data is one of the most important privacy practices for photographers, AI creators, and anyone who shares images online." },
       { type: "p", content: "This guide covers everything you need to know about EXIF data in 2026: what information it contains, which file formats store it, why it matters for both privacy and AI detection, and the most effective methods for removing it across different platforms and use cases." },
@@ -276,23 +323,23 @@ export const blogPosts: BlogPost[] = [
   // ─── Article 4 ───────────────────────────────────────────────────────────────
   {
     slug: "undetectable-ai-images-guide",
-    title: "How to Make AI Images Undetectable: A Practical 2026 Guide",
-    description: "AI detection tools are becoming more sophisticated, but so are the methods for making AI images undetectable. This guide covers metadata removal, pixel fingerprint modification, and best practices for creators who need their AI-assisted work to pass detection.",
+    title: "How to Remove AI Metadata: A Practical 2026 Guide",
+    description: "Learn how to remove EXIF, C2PA, PNG chunks, and other AI-generated image metadata, plus a few practical steps for cleaning up common AI signatures in a privacy-first workflow.",
     date: "February 18, 2026",
     dateISO: "2026-02-18",
     author: AUTHOR_PRIYA,
     category: "Creator Guide",
-    tags: ["undetectable ai image", "ai detection bypass", "ai image privacy", "remove ai watermark", "ai pixel remover"],
+    tags: ["ai metadata remover", "ai image privacy", "remove ai watermark", "ai pixel remover", "c2pa"],
     readTime: 12,
-    featured: true,
+    featured: false,
     coverGradient: "linear-gradient(135deg, oklch(0.12 0.07 250) 0%, oklch(0.18 0.12 210) 100%)",
     coverImage: "https://d2xsxph8kpxj0f.cloudfront.net/310419663030568626/8ywQyTwM8J3DhQPbxGgFvw/blog-cover-undetectable-iVDw52KQetB9oAdKrJgNSX.webp",
-    relatedSlugs: ["what-is-ai-metadata-and-why-it-matters", "how-to-remove-c2pa-metadata", "midjourney-metadata-removal"],
+    relatedSlugs: ["what-is-ai-metadata-and-why-it-matters", "what-are-content-credentials", "midjourney-metadata-removal"],
     sections: [
-      { type: "p", content: "The question of how to make AI images undetectable is one of the most searched topics in the creator community in 2026 — and also one of the most misunderstood. Many creators believe that simply running an AI image through a photo editor, applying a filter, or saving it in a different format is sufficient to evade detection. In reality, AI detection operates on multiple levels simultaneously, and addressing only one level while ignoring the others leaves significant traces that detection systems can identify." },
-      { type: "p", content: "This guide is written for creators who use AI tools as part of their legitimate creative workflow and need to understand the full landscape of AI detection — and the corresponding methods for producing images that do not carry involuntary AI signatures. We will cover both the technical methods and the practical workflow considerations." },
-      { type: "h2", content: "Understanding AI Detection: Three Levels" },
-      { type: "p", content: "AI detection systems in 2026 operate on three distinct levels, each requiring a different countermeasure. Understanding all three is essential for anyone who wants to produce genuinely undetectable AI images." },
+      { type: "p", content: "The question of how to remove AI metadata from an image is one of the most searched topics in the creator community in 2026 — and also one of the most misunderstood. Many creators believe that simply running an AI image through a photo editor, applying a filter, or saving it in a different format is sufficient. In reality, AI metadata and image signatures can exist on several levels at once, and addressing only one layer often leaves the rest behind." },
+      { type: "p", content: "This guide is written for creators who use AI tools as part of their legitimate creative workflow and need a practical overview of what should be removed, what can still remain, and which steps are worth taking before publishing an image. We will cover both the technical methods and the workflow considerations." },
+      { type: "h2", content: "Understanding AI Signals: Three Levels" },
+      { type: "p", content: "AI content analysis in 2026 can look at three distinct layers, each requiring a different response. Understanding all three is useful if you want to clean up an AI-generated image before sharing it." },
       { type: "h3", content: "Level 1: File Metadata Detection" },
       { type: "p", content: "The simplest and most common form of AI detection is file metadata scanning. This involves reading the EXIF, XMP, PNG text chunk, and C2PA data embedded in an image file and looking for known AI tool signatures. This is the detection method used by most stock photography platforms, many social media platforms, and basic AI content auditing tools. It is also the easiest to address: complete metadata removal eliminates all file-level AI signatures." },
       { type: "h3", content: "Level 2: Pixel-Level Statistical Analysis" },
@@ -309,7 +356,7 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       { type: "h2", content: "Step 1: Complete Metadata Removal" },
-      { type: "p", content: "The first step in making an AI image undetectable is removing all file-level metadata. This means stripping EXIF fields (including the Software field that identifies the AI tool, the UserComment field that may contain your prompt, and GPS data if present), XMP packets, PNG text chunks (which Stable Diffusion and ComfyUI use extensively), and C2PA content credentials (present in DALL-E 3, Adobe Firefly, and Bing Image Creator outputs)." },
+      { type: "p", content: "The first step in cleaning an AI-generated image is removing all file-level metadata. This means stripping EXIF fields (including the Software field that identifies the AI tool, the UserComment field that may contain your prompt, and GPS data if present), XMP packets, PNG text chunks (which Stable Diffusion and ComfyUI use extensively), and C2PA content credentials (present in DALL-E 3, Adobe Firefly, and Bing Image Creator outputs)." },
       { type: "p", content: "Standard photo editing tools are not sufficient for complete metadata removal. Photoshop's 'Save for Web' option removes most EXIF data but does not reliably remove C2PA credentials. GIMP's export options vary by version and format. The most reliable approach is to use a tool specifically designed for complete metadata removal — one that uses the Canvas re-encoding method to create a new file from pixel data, ensuring that no metadata containers are carried over." },
       {
         type: "callout",
@@ -322,9 +369,9 @@ export const blogPosts: BlogPost[] = [
       { type: "p", content: "After removing file-level metadata, the next step is to modify the pixel-level fingerprint of the image. AI-generated images have characteristic statistical patterns in their pixel data that arise from the diffusion process. These patterns are present in the frequency domain — they are not visible to human eyes, but they are detectable by trained classifiers." },
       { type: "p", content: "The most effective approach to pixel fingerprint modification is to apply imperceptible perturbations to the image's pixel values. This involves making small (±1 to ±3 RGB value) adjustments to selected pixels in a pattern that disrupts the frequency-domain signatures of AI generation without introducing visible artifacts. The key is that the modifications must be below the threshold of human visual perception while being sufficient to change the image's statistical profile." },
       { type: "p", content: "BlankAI applies this pixel modification step automatically as part of its processing pipeline. After drawing the image onto a Canvas (which removes file-level metadata), it iterates through the pixel data and applies targeted perturbations before exporting the final image. The result is an image that looks identical to the original but has a different SHA-256 hash and a modified statistical profile." },
-      { type: "h2", content: "Step 3: Post-Processing for Semantic Undetectability" },
-      { type: "p", content: "For images that need to pass the most sophisticated detection systems — those that analyze semantic and perceptual characteristics — technical metadata removal is necessary but not sufficient. You also need to address the visual characteristics that make AI images recognizable to trained human reviewers and advanced AI classifiers." },
-      { type: "p", content: "The most effective post-processing techniques for semantic undetectability include: applying subtle grain or noise overlays that mimic the noise characteristics of camera sensors; using selective sharpening and blurring to create the depth-of-field variation characteristic of real photography; adding subtle color grading that mimics the tonal characteristics of specific camera systems; and manually correcting anatomical inconsistencies (hands, eyes, teeth) that are common in AI-generated images." },
+      { type: "h2", content: "Step 3: Post-Processing for Visual Consistency" },
+      { type: "p", content: "For images that need a more natural finish, technical metadata removal is necessary but not always sufficient. You may also want to address the visual characteristics that make AI images stand out to trained human reviewers and advanced classifiers." },
+      { type: "p", content: "The most effective post-processing techniques include applying subtle grain or noise overlays that mimic camera sensor noise, using selective sharpening and blurring to create more realistic depth of field, adding color grading that matches the intended look, and manually correcting obvious anatomical inconsistencies such as hands, eyes, and teeth." },
       { type: "h2", content: "Practical Workflow for Creators" },
       {
         type: "ol",
@@ -338,9 +385,9 @@ export const blogPosts: BlogPost[] = [
         ],
       },
       { type: "h2", content: "Important Ethical Considerations" },
-      { type: "p", content: "It is important to address the ethical dimensions of making AI images undetectable. The techniques described in this guide are legitimate tools for protecting creator privacy and preventing involuntary disclosure of creative tools. However, they should not be used to deceive in contexts where AI disclosure is legally required, to circumvent platform policies that prohibit AI-generated content for legitimate reasons, or to misrepresent the nature of images in contexts where that misrepresentation could cause harm." },
+      { type: "p", content: "It is important to address the ethical dimensions of metadata removal. The techniques described in this guide are legitimate tools for protecting creator privacy and preventing involuntary disclosure of creative tools. However, they should not be used to deceive in contexts where AI disclosure is legally required, to circumvent platform policies that prohibit AI-generated content for legitimate reasons, or to misrepresent the nature of images in contexts where that misrepresentation could cause harm." },
       { type: "p", content: "The goal of metadata removal is to give creators control over their own creative process — to prevent the involuntary disclosure of tool usage that can lead to discrimination, demonetization, or client distrust. It is not a tool for deception, and using it responsibly means understanding the difference between protecting your privacy and misrepresenting your work." },
-      { type: "cta", variant: "tool", content: "Start making your AI images undetectable with BlankAI — complete metadata removal and pixel fingerprint modification, free and private.", ctaText: "Try BlankAI Free", ctaHref: "/#upload" },
+      { type: "cta", variant: "tool", content: "Start cleaning AI images with BlankAI — complete metadata removal and pixel fingerprint cleanup, free and private.", ctaText: "Try BlankAI Free", ctaHref: "/#upload" },
     ],
   },
 
@@ -353,12 +400,12 @@ export const blogPosts: BlogPost[] = [
     dateISO: "2026-03-03",
     author: AUTHOR_PRIYA,
     category: "Tool-Specific Guide",
-    tags: ["midjourney metadata", "midjourney exif", "remove midjourney watermark", "midjourney undetectable", "ai image remover"],
+    tags: ["midjourney metadata", "midjourney exif", "remove midjourney watermark", "midjourney metadata remover", "ai image remover"],
     readTime: 8,
     featured: false,
     coverGradient: "linear-gradient(135deg, oklch(0.14 0.05 230) 0%, oklch(0.21 0.08 270) 100%)",
     coverImage: "https://d2xsxph8kpxj0f.cloudfront.net/310419663030568626/8ywQyTwM8J3DhQPbxGgFvw/blog-cover-midjourney-knvxZPWDUpsnZdrLbuZLBq.webp",
-    relatedSlugs: ["what-is-ai-metadata-and-why-it-matters", "undetectable-ai-images-guide", "stable-diffusion-metadata-guide"],
+    relatedSlugs: ["what-is-ai-metadata-and-why-it-matters", "what-are-content-credentials", "stable-diffusion-metadata-guide"],
     sections: [
       { type: "p", content: "Midjourney is the most widely used AI image generation platform in the world, with millions of creators using it daily to produce images for commercial projects, social media, marketing materials, and personal art. What many of these creators do not realize is that every Midjourney image — whether downloaded from the Discord bot or the Midjourney web interface — contains embedded metadata that identifies it as AI-generated." },
       { type: "p", content: "This guide focuses specifically on Midjourney's metadata practices: what data is embedded in Midjourney outputs, how this data is used by detection systems, and the most efficient workflow for removing it. If you use Midjourney professionally, this information is essential." },
@@ -423,7 +470,7 @@ export const blogPosts: BlogPost[] = [
     featured: false,
     coverGradient: "linear-gradient(135deg, oklch(0.13 0.08 220) 0%, oklch(0.20 0.06 250) 100%)",
     coverImage: "https://d2xsxph8kpxj0f.cloudfront.net/310419663030568626/8ywQyTwM8J3DhQPbxGgFvw/blog-cover-stable-diffusion-Gt2sYuY4xQhbet9XCoAu9e.webp",
-    relatedSlugs: ["what-is-ai-metadata-and-why-it-matters", "remove-exif-data-complete-guide", "undetectable-ai-images-guide"],
+    relatedSlugs: ["what-is-ai-metadata-and-why-it-matters", "what-are-content-credentials", "remove-exif-data-complete-guide"],
     sections: [
       { type: "p", content: "Stable Diffusion is unique among major AI image generators in the sheer volume of metadata it embeds in its outputs. While tools like Midjourney embed a few identifying fields and DALL-E 3 uses C2PA credentials, Stable Diffusion — through its most popular interfaces, AUTOMATIC1111 and ComfyUI — embeds a comprehensive record of the entire generation process directly in the image file. This includes your full prompt, your negative prompt, the model checkpoint you used, the LoRA weights, the seed, the number of steps, the CFG scale, the sampler, and in ComfyUI's case, the complete workflow graph as a JSON object." },
       { type: "p", content: "For privacy-conscious creators, this is a significant concern. The embedded data is not just an AI identifier — it is a detailed record of your creative process, your preferred models, your prompt engineering techniques, and potentially your artistic style. This guide explains exactly where this data lives in Stable Diffusion output files, how to read it, and how to remove it completely." },

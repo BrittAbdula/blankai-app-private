@@ -1,7 +1,7 @@
 /**
  * BlogSection — Homepage blog preview section for BlankAI
  * Uses real blog data with cover images, proper /blog/:slug links, and rich EEAT content
- * Target keywords: remove ai metadata, undetectable ai image, c2pa remover, exif removal
+ * Target keywords: remove ai content credentials, image metadata remover, c2pa remover, exif removal
  */
 
 import { ArrowRight, Clock, BookOpen } from "lucide-react";
@@ -15,7 +15,7 @@ const displayPosts = blogPosts.filter((p) => p.featured).slice(0, 3).length >= 3
 
 export default function BlogSection() {
   return (
-    <section className="py-20" aria-label="Blog and resources about AI metadata removal">
+    <section className="py-20" aria-label="Blog and resources about image metadata and content credentials">
       <div className="container">
         {/* Section header */}
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-12">
@@ -25,11 +25,25 @@ export default function BlogSection() {
               GUIDES & RESOURCES
             </div>
             <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Learn About AI Metadata Removal
+              Learn About Content Credentials & Metadata
             </h2>
             <p className="text-muted-foreground text-base max-w-2xl">
-              Expert guides on removing EXIF data, C2PA credentials, and pixel fingerprints from AI-generated images. Written by researchers and engineers with hands-on experience.
+              Plain-language guides on content credentials, EXIF data, C2PA metadata, and browser-based image cleaning. Written by researchers and engineers with hands-on experience.
             </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link
+                href="/remove-ai-content-credentials"
+                className="rounded-full border border-cyan/20 bg-cyan/10 px-3 py-1.5 text-xs text-cyan transition-colors hover:bg-cyan/15"
+              >
+                Remove AI content credentials
+              </Link>
+              <Link
+                href="/image-metadata-remover"
+                className="rounded-full border border-border bg-card/40 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-cyan/30 hover:text-foreground"
+              >
+                Image metadata remover
+              </Link>
+            </div>
           </div>
           <Link
             href="/blog"

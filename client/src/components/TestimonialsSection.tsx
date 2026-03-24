@@ -11,14 +11,14 @@ const testimonials = [
     role: "Digital Artist & AI Creator",
     avatar: "SK",
     rating: 5,
-    text: "BlankAI is the only tool that actually removes AI pixel fingerprints. I've tested my images on Pinterest after using it and they pass without any 'Made with AI' labels. Incredible tool.",
+    text: "BlankAI gives me a fast way to clean metadata before I send AI-assisted images to clients. The browser-only workflow is the main reason I trust it.",
   },
   {
     name: "Marcus T.",
     role: "Print-on-Demand Seller",
     avatar: "MT",
     rating: 5,
-    text: "I was getting my Etsy listings flagged for AI content. After using BlankAI to remove the metadata and pixel fingerprints, my listings go through without any issues. Completely free too!",
+    text: "I use BlankAI to remove EXIF, GPS, and other hidden metadata before I upload product images. It is simple, fast, and keeps the workflow local.",
   },
   {
     name: "Priya M.",
@@ -39,7 +39,7 @@ const testimonials = [
     role: "Stable Diffusion Artist",
     avatar: "AN",
     rating: 5,
-    text: "It strips Stable Diffusion parameters perfectly — prompts, seeds, everything. My ComfyUI outputs are completely clean after processing. The pixel hash modification is genius.",
+    text: "It strips Stable Diffusion parameters exactly how I need — prompts, seeds, and workflow data. My ComfyUI exports are much cleaner after processing.",
   },
   {
     name: "David L.",
