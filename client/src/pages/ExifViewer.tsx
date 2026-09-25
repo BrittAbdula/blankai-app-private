@@ -23,6 +23,8 @@ import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import { usePageMeta } from "@/hooks/usePageMeta";
 import { extractExif, type ExifResult } from "@/lib/exifReader";
+import { scanMetadata, type MetadataScan } from "@/lib/metadataScan";
+import ProvenanceSummary from "@/components/ProvenanceSummary";
 import { createImagePreviewDataUrl, fetchPublicFile } from "@/lib/imagePreview";
 import {
   buildDisplayMetadataGroups,
@@ -195,6 +197,7 @@ export default function ExifViewer() {
   }, []);
 
   const [result, setResult] = useState<ExifResult | null>(null);
+  const [scan, setScan] = useState<MetadataScan | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -263,14 +266,17 @@ export default function ExifViewer() {
     setIsEditMode(false);
     setEditDraft(null);
     setResult(null);
+    setScan(null);
     setCurrentFile(file);
     setPreviewUrl(null);
     try {
-      const [data, nextPreviewUrl] = await Promise.all([
+      const [data, nextPreviewUrl, nextScan] = await Promise.all([
         extractExif(file),
         createImagePreviewDataUrl(file, file.name).catch(() => null),
+        scanMetadata(file).catch(() => null),
       ]);
       setPreviewUrl(nextPreviewUrl);
+      setScan(nextScan);
       // If no metadata found at all (not even file info fields beyond the basics)
       if (data.totalFields <= 5 && !data.hasGPS && !data.hasCameraInfo) {
         // Still show result, but with a note
@@ -528,6 +534,7 @@ export default function ExifViewer() {
 
   const reset = () => {
     setResult(null);
+    setScan(null);
     setError(null);
     setLoading(false);
     setCurrentFile(null);
@@ -881,6 +888,12 @@ export default function ExifViewer() {
                     ))}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {result && scan && (
+              <div className="mb-4">
+                <ProvenanceSummary scan={scan} />
               </div>
             )}
 

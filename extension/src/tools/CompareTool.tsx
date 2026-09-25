@@ -489,7 +489,7 @@ export default function CompareTool({ seed }: { seed: CompareSeed | null }) {
                   <span className="font-mono text-cyan">{slotB.hash}</span>
                 </div>
                 {slotA.hash && slotB.hash && slotA.hash !== slotB.hash ? (
-                  <div className="text-xs text-emerald-300">Hashes differ — fingerprint changed.</div>
+                  <div className="text-xs text-emerald-300">Hashes differ: the files are not byte-identical.</div>
                 ) : null}
               </div>
             </div>

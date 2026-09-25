@@ -16,11 +16,13 @@ async function startServer() {
       ? path.resolve(__dirname, "public")
       : path.resolve(__dirname, "..", "dist", "public");
 
-  app.use(express.static(staticPath));
+  // Prerendered routes are stored as /route.html; serve them for /route,
+  // mirroring Cloudflare Pages behaviour.
+  app.use(express.static(staticPath, { extensions: ["html"] }));
 
-  // Handle client-side routing - serve index.html for all routes
+  // Unknown routes get the prerendered 404 page with a real 404 status.
   app.get("*", (_req, res) => {
-    res.sendFile(path.join(staticPath, "index.html"));
+    res.status(404).sendFile(path.join(staticPath, "404.html"));
   });
 
   const port = process.env.PORT || 3000;

@@ -1,24 +1,46 @@
 /**
- * BlankAI — Shared Site Footer
- * Used by: Home, ImageDiff, PrivacyPolicy, TermsOfService
+ * BlankAI shared site footer, used by every page.
+ * Doubles as the site-wide internal link map for tools and guides.
  */
-
 import { Link } from "wouter";
-import { EyeOff, Mail, Shield, Github, Twitter } from "lucide-react";
+import { EyeOff, Github, Mail, Twitter } from "lucide-react";
+import { HUBS, landingPages } from "@/data/landingPages";
+import { EXTENSION_URL, REPO_URL, SUPPORT_EMAIL } from "@/lib/site";
 
-const repoUrl = "https://github.com/BrittAbdula/blankai-app";
+function FooterColumn({ title, links }: { title: string; links: { href: string; label: string; external?: boolean }[] }) {
+  return (
+    <div>
+      <h4 className="font-display font-semibold text-foreground text-sm mb-3">{title}</h4>
+      <ul className="space-y-2 text-sm text-muted-foreground">
+        {links.map((link) => (
+          <li key={link.href}>
+            {link.external ? (
+              <a href={link.href} target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
+                {link.label}
+              </a>
+            ) : (
+              <Link href={link.href} className="hover:text-foreground transition-colors">
+                {link.label}
+              </Link>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export default function SiteFooter() {
+  const generators = landingPages.filter((p) => p.kind === "generator");
+  const platforms = landingPages.filter((p) => p.kind === "platform");
+  const formats = landingPages.filter((p) => p.kind === "format" || p.kind === "core");
+
   return (
     <footer className="border-t border-border bg-card/30">
       <div className="container py-12">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
-          {/* Brand */}
-          <div className="col-span-2 md:col-span-1">
-            <Link
-              href="/"
-              className="flex items-center gap-2.5 mb-3 group w-fit"
-            >
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 mb-10">
+          <div className="col-span-2 md:col-span-3 lg:col-span-2">
+            <Link href="/" className="flex items-center gap-2.5 mb-3 group w-fit">
               <div className="w-8 h-8 rounded-lg gradient-cyan flex items-center justify-center">
                 <EyeOff className="w-4 h-4 text-navy" />
               </div>
@@ -26,22 +48,13 @@ export default function SiteFooter() {
                 blank<span className="text-cyan">AI</span>
               </span>
             </Link>
-            <p className="text-muted-foreground text-xs leading-relaxed max-w-[200px]">
-              The most advanced free AI metadata remover. 100% browser-based,
-              zero server uploads.
+            <p className="text-muted-foreground text-xs leading-relaxed max-w-xs">
+              Inspect, clean and verify image metadata in your browser. BlankAI removes EXIF, GPS, XMP, IPTC, C2PA and PNG text
+              data. It does not remove invisible watermarks such as SynthID.
             </p>
-            <a
-              href={repoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 mt-3 text-xs text-cyan/80 hover:text-cyan transition-colors"
-            >
-              <Github className="w-3.5 h-3.5" />
-              Open source on GitHub
-            </a>
             <div className="flex items-center gap-3 mt-4">
               <a
-                href={repoUrl}
+                href={REPO_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-cyan hover:border-cyan/30 transition-all"
@@ -54,12 +67,12 @@ export default function SiteFooter() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-cyan/30 transition-all"
-                aria-label="BlankAI on Twitter"
+                aria-label="BlankAI on X"
               >
                 <Twitter className="w-3.5 h-3.5" />
               </a>
               <a
-                href="mailto:support@blankai.app"
+                href={`mailto:${SUPPORT_EMAIL}`}
                 className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-cyan hover:border-cyan/30 transition-all"
                 aria-label="Email BlankAI support"
               >
@@ -68,200 +81,52 @@ export default function SiteFooter() {
             </div>
           </div>
 
-          {/* Tools */}
-          <div>
-            <h4 className="font-display font-semibold text-foreground text-sm mb-3">
-              Tools
-            </h4>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>
-                <Link
-                  href="/"
-                  className="hover:text-foreground transition-colors flex items-center gap-1.5"
-                >
-                  <svg
-                    className="w-3 h-3 text-cyan/60"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                  >
-                    <path
-                      d="M8 2v8M4 6l4-4 4 4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path d="M2 13h12" strokeLinecap="round" />
-                  </svg>
-                  AI Metadata Remover
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/image-diff"
-                  className="hover:text-foreground transition-colors flex items-center gap-1.5"
-                >
-                  <svg
-                    className="w-3 h-3 text-cyan/60"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                  >
-                    <rect x="1" y="3" width="6" height="10" rx="1" />
-                    <rect x="9" y="3" width="6" height="10" rx="1" />
-                    <path d="M7 8h2" strokeLinecap="round" />
-                  </svg>
-                  Image Diff Tool
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/exif-viewer"
-                  className="hover:text-foreground transition-colors flex items-center gap-1.5"
-                >
-                  <svg
-                    className="w-3 h-3 text-cyan/60"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                  >
-                    <circle cx="8" cy="8" r="5" />
-                    <circle cx="8" cy="8" r="2" />
-                    <path
-                      d="M8 1v2M8 13v2M1 8h2M13 8h2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  EXIF Viewer
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Resources */}
-          <div>
-            <h4 className="font-display font-semibold text-foreground text-sm mb-3">
-              Resources
-            </h4>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>
-                <Link
-                  href="/blog"
-                  className="hover:text-foreground transition-colors flex items-center gap-1.5"
-                >
-                  <svg
-                    className="w-3 h-3 text-cyan/60"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                  >
-                    <path d="M2 4h12M2 8h8M2 12h6" strokeLinecap="round" />
-                  </svg>
-                  Blog & Guides
-                </Link>
-              </li>
-              <li>
-                <a
-                  href="#faq"
-                  className="hover:text-foreground transition-colors"
-                >
-                  FAQ
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#use-cases"
-                  className="hover:text-foreground transition-colors"
-                >
-                  Use Cases
-                </a>
-              </li>
-              <li>
-                <Link
-                  href="/privacy"
-                  className="hover:text-foreground transition-colors"
-                >
-                  Privacy Policy
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/terms"
-                  className="hover:text-foreground transition-colors"
-                >
-                  Terms of Service
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <h4 className="font-display font-semibold text-foreground text-sm mb-3">
-              Contact
-            </h4>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>
-                <a
-                  href="mailto:support@blankai.app"
-                  className="hover:text-cyan transition-colors flex items-center gap-1.5"
-                >
-                  <Mail className="w-3 h-3 text-cyan/60" />
-                  support@blankai.app
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://blankai.app"
-                  className="hover:text-foreground transition-colors flex items-center gap-1.5"
-                >
-                  <Shield className="w-3 h-3 text-cyan/60" />
-                  blankai.app
-                </a>
-              </li>
-            </ul>
-          </div>
+          <FooterColumn
+            title="Tools"
+            links={[
+              { href: "/", label: "AI Metadata Remover" },
+              { href: "/exif-viewer", label: "EXIF Viewer" },
+              { href: "/image-diff", label: "Image Diff" },
+              { href: "/heic-to-jpg", label: "HEIC to JPG" },
+              { href: EXTENSION_URL, label: "Chrome extension", external: true },
+            ]}
+          />
+          <FooterColumn
+            title="AI generators"
+            links={[
+              { href: HUBS.generators.path, label: "Comparison table" },
+              ...generators.map((p) => ({ href: `/${p.slug}`, label: p.name })),
+            ]}
+          />
+          <FooterColumn
+            title="Platforms"
+            links={[
+              { href: HUBS.platforms.path, label: "Comparison table" },
+              ...platforms.map((p) => ({ href: `/${p.slug}`, label: p.name })),
+            ]}
+          />
+          <FooterColumn
+            title="Formats and guides"
+            links={[
+              ...formats.map((p) => ({ href: `/${p.slug}`, label: p.name })),
+              { href: "/blog", label: "Blog" },
+              { href: "/privacy", label: "Privacy policy" },
+              { href: "/terms", label: "Terms of service" },
+            ]}
+          />
         </div>
 
-        {/* Bottom bar */}
         <div className="border-t border-border pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground text-center sm:text-left">
-            © {new Date().getFullYear()} BlankAI. All rights reserved. Free{" "}
-            <Link
-              href="/"
-              className="text-cyan/70 hover:text-cyan transition-colors"
-            >
-              AI metadata remover
-            </Link>
-            {" · "}
-            <Link
-              href="/image-diff"
-              className="text-cyan/70 hover:text-cyan transition-colors"
-            >
-              Image Diff Tool
-            </Link>
-            {" · "}
-            <Link
-              href="/exif-viewer"
-              className="text-cyan/70 hover:text-cyan transition-colors"
-            >
-              EXIF Viewer
-            </Link>
-            {" · "}
-            <Link
-              href="/blog"
-              className="text-cyan/70 hover:text-cyan transition-colors"
-            >
-              Blog
-            </Link>
+            © {new Date().getFullYear()} BlankAI. Free AI metadata remover. Contact{" "}
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-cyan/70 hover:text-cyan">
+              {SUPPORT_EMAIL}
+            </a>
             .
           </p>
           <div className="flex items-center gap-3">
             <a
-              href={repoUrl}
+              href={REPO_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -269,10 +134,8 @@ export default function SiteFooter() {
               <Github className="w-3.5 h-3.5" />
               MIT licensed
             </a>
-            <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-xs text-muted-foreground font-mono-custom">
-              100% client-side · zero uploads
-            </span>
+            <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+            <span className="text-xs text-muted-foreground font-mono-custom">client-side · no uploads</span>
           </div>
         </div>
       </div>

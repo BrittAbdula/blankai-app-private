@@ -4,10 +4,10 @@ import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { defineConfig } from "vite";
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin()];
-
-export default defineConfig({
-  plugins,
+export default defineConfig(({ command }) => ({
+  // jsx-loc adds data-loc="file:line" attributes for visual editing. Keep it
+  // out of production builds so the prerendered HTML stays lean.
+  plugins: [react(), tailwindcss(), ...(command === "serve" ? [jsxLocPlugin()] : [])],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
@@ -31,4 +31,4 @@ export default defineConfig({
       deny: ["**/.*"],
     },
   },
-});
+}));

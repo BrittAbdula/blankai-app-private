@@ -1,22 +1,17 @@
 {
-  "name": "BlankAI — Remove AI Metadata",
+  "name": "BlankAI: AI Metadata Remover",
   "short_name": "BlankAI",
-  "description": "Free AI metadata remover. Strip EXIF, C2PA, GPS and pixel fingerprints. Make AI images undetectable.",
+  "description": "Inspect, clean and verify image metadata in your browser. Removes EXIF, GPS, XMP, IPTC, C2PA and PNG text data without uploading files.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0A0F1E",
-  "theme_color": "#00D4FF",
-  "orientation": "portrait-primary",
+  "theme_color": "#0A0F1E",
   "icons": [
-    {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/images/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/images/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ],
-  "categories": ["utilities", "productivity"],
+  "categories": ["utilities", "productivity", "photo"],
   "lang": "en",
-  "scope": "/",
-  "screenshots": []
+  "scope": "/"
 }

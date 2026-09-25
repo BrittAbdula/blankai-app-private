@@ -18,13 +18,13 @@ import { cn } from "@extension/lib/utils";
 type CleanStage = "idle" | "staged" | "processing" | "done" | "error";
 
 const PROCESSING_STEPS = [
-  "Loading image into memory...",
-  "Rendering to canvas and stripping metadata...",
-  "Modifying pixel fingerprint...",
-  "Computing hash delta...",
-  "Encoding clean output...",
+  "Reading the file locally...",
+  "Scanning metadata containers...",
+  "Redrawing pixels on a canvas...",
+  "Encoding a fresh JPEG...",
+  "Re-scanning the output...",
 ];
-const REMOVAL_TAGS = ["EXIF", "GPS", "C2PA", "AI Tags", "Pixel Hash"];
+const REMOVAL_TAGS = ["EXIF", "GPS", "XMP", "IPTC", "C2PA", "PNG text"];
 
 function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -166,7 +166,8 @@ export default function CleanTool({ onUseInCompare, seed }: CleanToolProps) {
     setError(null);
 
     try {
-      const [nextResult] = await Promise.all([processImage(file), wait(1400)]);
+      // Short minimum so the progress state is readable; the work itself is not slowed.
+      const [nextResult] = await Promise.all([processImage(file), wait(300)]);
       setResult(nextResult);
       setStage("done");
     } catch (caughtError) {
@@ -203,8 +204,8 @@ export default function CleanTool({ onUseInCompare, seed }: CleanToolProps) {
       },
       {
         icon: Zap,
-        label: "Pixels",
-        value: result.pixelsModified.toLocaleString(),
+        label: "Found",
+        value: `${result.metadataRemoved.length} block${result.metadataRemoved.length === 1 ? "" : "s"}`,
       },
       {
         icon: Sparkles,
@@ -349,7 +350,12 @@ export default function CleanTool({ onUseInCompare, seed }: CleanToolProps) {
                   {hashSnippet(result.hashAfter)}
                 </span>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 text-xs text-slate-400">
+                {result.metadataRemoved.length
+                  ? "Removed from the original, and confirmed absent in the new file:"
+                  : "No embedded metadata was found in the original. The new copy is a fresh export."}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
                 {result.metadataRemoved.map((item) => (
                   <span
                     key={item}
@@ -359,6 +365,9 @@ export default function CleanTool({ onUseInCompare, seed }: CleanToolProps) {
                   </span>
                 ))}
               </div>
+              <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+                Invisible watermarks such as SynthID are part of the pixels and are not removed.
+              </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">

@@ -1,202 +1,261 @@
 /**
- * BlankAI — Real Image Processing Engine
+ * BlankAI image cleaning engine (browser-only).
  *
- * Pipeline:
- * 0. HEIC/HEIF → convert to JPEG via heic2any (for iPhone photos)
- * 1. Read bytes → SHA-256 hash (before)
- * 2. Canvas draw → strips ALL metadata (EXIF, XMP, IPTC, C2PA, PNG chunks)
- * 3. Pixel-level ±1 RGB delta on every Nth pixel → changes digital fingerprint
- * 4. Re-encode as JPEG at 0.92 quality
- * 5. FileReader → data: URI (Base64) — iOS Safari long-press save to Photos works with data: URIs
- * 6. SHA-256 hash (after)
+ * Pipeline per file:
+ *   1. Scan the original bytes for metadata containers (EXIF, GPS, XMP, IPTC,
+ *      C2PA, PNG text chunks…) so the result lists what was really there.
+ *   2. HEIC/HEIF → decode via heic2any (browsers cannot draw HEIC natively).
+ *   3. Draw the decoded pixels onto a canvas. Canvas exports contain pixel data
+ *      only, so no metadata container from the source is carried over.
+ *   4. Encode a fresh file in the chosen format (same as source by default,
+ *      so PNG transparency and WebP stay intact).
+ *   5. Re-scan the output bytes to verify that no metadata survived.
+ *
+ * What this does not do: it does not alter pixels to defeat invisible
+ * watermarks such as SynthID. Those are part of the image content itself.
  */
-import heic2any from "heic2any";
+import {
+  residualFindings,
+  scanMetadata,
+  type MetadataFinding,
+  type ProvenanceHints,
+} from "@/lib/metadataScan";
+
+export type OutputFormat = "auto" | "jpeg" | "png" | "webp";
+export type EncodedFormat = "jpeg" | "png" | "webp";
+
+export interface ProcessOptions {
+  format: OutputFormat;
+  /** 0–1, used for JPEG and WebP. */
+  quality: number;
+}
+
+export const DEFAULT_PROCESS_OPTIONS: ProcessOptions = { format: "auto", quality: 0.92 };
 
 export interface ProcessedImageResult {
   originalName: string;
   cleanedName: string;
   blob: Blob;
-  downloadUrl: string;   // data: URI — works for iOS long-press AND programmatic <a download>
+  /** data: URI so iOS Safari long-press "Save to Photos" works. */
+  downloadUrl: string;
   sizeBefore: number;
   sizeAfter: number;
-  sizeReductionPct: number;
-  pixelsModified: number;
-  quality: number;       // 0-100
-  hashBefore: string;    // first 32 hex chars of SHA-256
+  /** Positive when the output is smaller. */
+  sizeChangePct: number;
+  inputFormat: string;
+  outputFormat: EncodedFormat;
+  /** 0–100 for lossy output, null for PNG. */
+  quality: number | null;
+  hashBefore: string;
   hashAfter: string;
-  metadataRemoved: string[];
   width: number;
   height: number;
+  /** Metadata found in the original file (and therefore not in the output). */
+  found: MetadataFinding[];
+  hints: ProvenanceHints;
+  /** True when the output re-scan found no identifying metadata. */
+  outputVerified: boolean;
+  /** Anything the output re-scan still found (should be empty). */
+  residual: MetadataFinding[];
+  /** Set when the pixels were decoded from HEIC/AVIF and re-encoded. */
+  convertedFrom?: string;
 }
+
+const MIME: Record<EncodedFormat, string> = {
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+};
+
+const EXT: Record<EncodedFormat, string> = { jpeg: "jpg", png: "png", webp: "webp" };
 
 async function sha256Hex(buffer: ArrayBuffer): Promise<string> {
   const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
-  const hashArray = new Uint8Array(hashBuffer);
-  return Array.prototype.map.call(hashArray, (b: number) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(hashBuffer), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function detectMetadataTypes(bytes: Uint8Array): string[] {
-  const found: string[] = [];
-  const slice = bytes.slice(0, Math.min(bytes.length, 65536));
-  const text = Array.prototype.map.call(slice, (b: number) => String.fromCharCode(b)).join("");
-
-  if (bytes[0] === 0xFF && bytes[1] === 0xD8) {
-    for (let i = 2; i < Math.min(bytes.length - 4, 8192); i++) {
-      if (bytes[i] === 0xFF && bytes[i + 1] === 0xE1) { found.push("EXIF"); break; }
-    }
-    if (text.includes("http://ns.adobe.com/xap") || text.includes("xpacket")) found.push("XMP");
-    for (let i = 2; i < Math.min(bytes.length - 4, 8192); i++) {
-      if (bytes[i] === 0xFF && bytes[i + 1] === 0xED) { found.push("IPTC"); break; }
-    }
-  }
-
-  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
-    if (text.includes("tEXt") || text.includes("iTXt") || text.includes("zTXt")) found.push("PNG Info Chunks");
-    if (text.includes("parameters") || text.includes("prompt") || text.includes("Steps:")) found.push("Stable Diffusion Params");
-  }
-
-  if (text.includes("c2pa") || text.includes("jumb") || text.includes("cbor") || text.includes("ContentCredentials")) found.push("C2PA Credentials");
-  if (text.includes("DALL-E") || text.includes("dalle") || text.includes("openai")) found.push("DALL-E Signature");
-  if (text.includes("midjourney") || text.includes("MidJourney")) found.push("MidJourney Signature");
-  if (text.includes("stable-diffusion") || text.includes("StableDiffusion") || text.includes("ComfyUI")) found.push("Stable Diffusion Signature");
-  if (text.includes("firefly") || text.includes("Adobe Firefly")) found.push("Adobe Firefly Signature");
-  if (text.includes("leonardo") || text.includes("Leonardo.Ai")) found.push("Leonardo AI Signature");
-
-  for (let i = 0; i < Math.min(bytes.length - 2, 65536); i++) {
-    if (bytes[i] === 0x88 && bytes[i + 1] === 0x25) { found.push("GPS Location"); break; }
-  }
-
-  if (found.length === 0) found.push("EXIF Data", "Image Metadata");
-  return found;
-}
-
-function isHeicFile(file: File): boolean {
+export function isHeicFile(file: File): boolean {
   const mime = file.type.toLowerCase();
   if (["image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"].includes(mime)) return true;
-  const ext = file.name.split(".").pop()?.toLowerCase();
-  return ext === "heic" || ext === "heif";
+  return /\.(heic|heif)$/i.test(file.name);
 }
 
-export async function processImage(file: File): Promise<ProcessedImageResult> {
-  // ── Step 0: HEIC/HEIF → JPEG conversion ──────────────────────────────────
-  let workFile = file;
-  if (isHeicFile(file)) {
-    try {
-      const converted = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.95 });
-      const blob = Array.isArray(converted) ? converted[0] : converted;
-      workFile = new File([blob], file.name.replace(/\.(heic|heif)$/i, ".jpg"), { type: "image/jpeg" });
-    } catch {
-      workFile = file; // fallback: let Canvas try
-    }
+function inputFormatOf(file: File): string {
+  if (isHeicFile(file)) return "heic";
+  const mime = file.type.toLowerCase();
+  if (mime === "image/jpeg" || /\.jpe?g$/i.test(file.name)) return "jpeg";
+  if (mime === "image/png" || /\.png$/i.test(file.name)) return "png";
+  if (mime === "image/webp" || /\.webp$/i.test(file.name)) return "webp";
+  if (mime === "image/avif" || /\.avif$/i.test(file.name)) return "avif";
+  return mime.replace("image/", "") || "unknown";
+}
+
+function loadImage(blob: Blob): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = (event) => {
+      URL.revokeObjectURL(url);
+      reject(event);
+    };
+    image.src = url;
+  });
+}
+
+function hasTransparency(ctx: CanvasRenderingContext2D, width: number, height: number): boolean {
+  const { data } = ctx.getImageData(0, 0, width, height);
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] < 255) return true;
+  }
+  return false;
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, mime: string, quality?: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error("Canvas export failed"))),
+      mime,
+      quality,
+    );
+  });
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+function pickTarget(inputFormat: string, requested: OutputFormat): EncodedFormat {
+  if (requested !== "auto") return requested;
+  if (inputFormat === "png") return "png";
+  if (inputFormat === "webp") return "webp";
+  // JPEG stays JPEG. HEIC and AVIF cannot be encoded by browsers, so they
+  // become JPEG (or PNG when the image has transparency, decided later).
+  return "jpeg";
+}
+
+function cleanedFileName(originalName: string, format: EncodedFormat): string {
+  const base = originalName.replace(/\.[^.]+$/, "") || "image";
+  return `${base}-clean.${EXT[format]}`;
+}
+
+export async function processImage(
+  file: File,
+  options: ProcessOptions = DEFAULT_PROCESS_OPTIONS,
+): Promise<ProcessedImageResult> {
+  const inputFormat = inputFormatOf(file);
+  const originalBuffer = await file.arrayBuffer();
+  const originalBytes = new Uint8Array(originalBuffer);
+  const [hashBefore, scanBefore] = await Promise.all([
+    sha256Hex(originalBuffer),
+    scanMetadata(file, originalBytes),
+  ]);
+
+  // Decode. HEIC needs a WASM decoder; everything else is native.
+  let drawable: Blob = file;
+  let convertedFrom: string | undefined;
+  if (inputFormat === "heic") {
+    const { default: heic2any } = await import("heic2any");
+    const converted = await heic2any({ blob: file, toType: "image/png" });
+    drawable = Array.isArray(converted) ? converted[0] : converted;
+    convertedFrom = "HEIC";
+  } else if (inputFormat === "avif") {
+    convertedFrom = "AVIF";
   }
 
-  // ── Step 1: Read bytes & hash (before) ───────────────────────────────────
-  const originalBuffer = await workFile.arrayBuffer();
-  const originalBytes = new Uint8Array(originalBuffer);
-  const hashBefore = (await sha256Hex(originalBuffer)).slice(0, 32);
-  const metadataRemoved = detectMetadataTypes(originalBytes);
+  const img = await loadImage(drawable);
+  const width = img.naturalWidth;
+  const height = img.naturalHeight;
 
-  // ── Step 2: Load into HTMLImageElement ───────────────────────────────────
-  const imgUrl = URL.createObjectURL(workFile);
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = reject;
-    image.src = imgUrl;
-  });
-  URL.revokeObjectURL(imgUrl);
-
-  const { naturalWidth: width, naturalHeight: height } = img;
-
-  // ── Step 3: Canvas draw (strips ALL metadata) ─────────────────────────────
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d", { willReadFrequently: false });
+  if (!ctx) throw new Error("Canvas is not available in this browser");
+
+  let target = pickTarget(inputFormat, options.format);
+
+  // Draw, then check transparency so JPEG output gets a white matte instead
+  // of black where the source was transparent.
   ctx.drawImage(img, 0, 0);
-
-  // ── Step 4: Pixel-level fingerprint modification ──────────────────────────
-  const imageData = ctx.getImageData(0, 0, width, height);
-  const data = imageData.data;
-  let pixelsModified = 0;
-  const totalPixels = width * height;
-  const step = Math.max(1, Math.floor(totalPixels / 10000));
-
-  for (let i = 0; i < totalPixels; i += step) {
-    const idx = i * 4;
-    if (idx + 3 >= data.length) break;
-    const delta = (i % 2 === 0) ? 1 : -1;
-    data[idx] = Math.max(0, Math.min(255, data[idx] + delta));
-    data[idx + 1] = Math.max(0, Math.min(255, data[idx + 1] - delta));
-    pixelsModified++;
+  const mayHaveAlpha = ["png", "webp", "avif"].includes(inputFormat);
+  const transparent = mayHaveAlpha && hasTransparency(ctx, width, height);
+  if (transparent && options.format === "auto" && target === "jpeg") target = "png";
+  if (transparent && target === "jpeg") {
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-over";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
   }
-  ctx.putImageData(imageData, 0, 0);
 
-  // ── Step 5: Re-encode as JPEG ─────────────────────────────────────────────
-  const quality = 0.92;
-  const cleanBlob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => { if (blob) resolve(blob); else reject(new Error("Canvas toBlob failed")); },
-      "image/jpeg",
-      quality
-    );
-  });
+  const lossy = target !== "png";
+  let blob = await canvasToBlob(canvas, MIME[target], lossy ? options.quality : undefined);
+  // Some browsers silently return PNG when they cannot encode the requested
+  // type (for example WebP on older Safari). Report what we actually produced.
+  const produced = (Object.keys(MIME) as EncodedFormat[]).find((key) => MIME[key] === blob.type);
+  if (produced && produced !== target) {
+    target = produced;
+  } else if (!produced) {
+    blob = await canvasToBlob(canvas, "image/png");
+    target = "png";
+  }
 
-  // ── Step 6: Compute output hash ───────────────────────────────────────────
-  const cleanBuffer = await cleanBlob.arrayBuffer();
-  const hashAfter = (await sha256Hex(cleanBuffer)).slice(0, 32);
-
-  // ── Step 7: Build data: URI for iOS Safari compatibility ──────────────────
-  // iOS Safari shows "no internet connection" when long-pressing blob: URLs.
-  // data: URIs are treated as embedded content — long-press save to Photos works.
-  const downloadUrl = await new Promise<string>((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.readAsDataURL(cleanBlob);
-  });
-
-  // ── Step 8: Stats ─────────────────────────────────────────────────────────
-  const sizeBefore = workFile.size;
-  const sizeAfter = cleanBlob.size;
-  const sizeReductionPct = Math.round(((sizeBefore - sizeAfter) / sizeBefore) * 100);
-  const cleanedName = `blankai_clean_${Date.now()}.jpg`;
+  const cleanBuffer = await blob.arrayBuffer();
+  const [hashAfter, scanAfter, downloadUrl] = await Promise.all([
+    sha256Hex(cleanBuffer),
+    scanMetadata(blob, new Uint8Array(cleanBuffer)),
+    blobToDataUrl(blob),
+  ]);
+  const residual = residualFindings(scanAfter);
 
   return {
     originalName: file.name,
-    cleanedName,
-    blob: cleanBlob,
+    cleanedName: cleanedFileName(file.name, target),
+    blob,
     downloadUrl,
-    sizeBefore,
-    sizeAfter,
-    sizeReductionPct,
-    pixelsModified,
-    quality: Math.round(quality * 100),
+    sizeBefore: file.size,
+    sizeAfter: blob.size,
+    sizeChangePct: file.size ? Math.round(((file.size - blob.size) / file.size) * 100) : 0,
+    inputFormat,
+    outputFormat: target,
+    quality: target === "png" ? null : Math.round(options.quality * 100),
     hashBefore,
     hashAfter,
-    metadataRemoved,
     width,
     height,
+    found: scanBefore.findings,
+    hints: scanBefore.hints,
+    outputVerified: residual.length === 0,
+    residual,
+    convertedFrom,
   };
 }
 
 export async function processImages(
   files: File[],
+  options: ProcessOptions = DEFAULT_PROCESS_OPTIONS,
   onProgress?: (current: number, total: number) => void,
-  minMsPerImage = 2500
 ): Promise<ProcessedImageResult[]> {
   const results: ProcessedImageResult[] = [];
+  const started = performance.now();
   for (let i = 0; i < files.length; i++) {
     onProgress?.(i, files.length);
-    const start = performance.now();
-    const result = await processImage(files[i]);
-    // Enforce minimum animation duration so users can see the processing state
-    const elapsed = performance.now() - start;
-    if (elapsed < minMsPerImage) {
-      await new Promise<void>((resolve) => setTimeout(resolve, minMsPerImage - elapsed));
-    }
-    results.push(result);
+    results.push(await processImage(files[i], options));
   }
   onProgress?.(files.length, files.length);
+  // Keep the progress panel on screen long enough to read (UI smoothing only;
+  // the work itself is already finished).
+  const elapsed = performance.now() - started;
+  if (elapsed < 350) await new Promise((resolve) => setTimeout(resolve, 350 - elapsed));
   return results;
 }
 
@@ -204,10 +263,4 @@ export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
-
-export function formatCount(n: number): string {
-  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-  if (n >= 1000) return `${Math.round(n / 1000)}k`;
-  return n.toString();
 }

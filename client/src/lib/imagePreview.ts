@@ -1,4 +1,3 @@
-import heic2any from "heic2any";
 
 const HEIC_MIME_TYPES = new Set([
   "image/heic",
@@ -85,6 +84,7 @@ async function toPreviewBlob(file: Blob | File, fileName?: string) {
   if (!shouldConvert) return file;
 
   try {
+    const { default: heic2any } = await import("heic2any");
     const converted = await heic2any({
       blob: file,
       toType: "image/jpeg",

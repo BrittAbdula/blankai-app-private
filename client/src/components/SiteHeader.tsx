@@ -1,6 +1,6 @@
 /**
  * BlankAI — Shared Site Header
- * Used by: Home, ImageDiff, PrivacyPolicy, TermsOfService
+ * Used by every page
  *
  * Mobile: hamburger → slide-down drawer with all nav links
  * Desktop: horizontal nav with Image Diff tool link
@@ -19,6 +19,9 @@ import {
   Shield,
   FileText,
   BookOpen,
+  Layers,
+  Globe,
+  Image as ImageIcon,
 } from "lucide-react";
 
 interface NavLink {
@@ -27,6 +30,8 @@ interface NavLink {
   external?: boolean;
   highlight?: boolean;
   match?: "exact" | "prefix";
+  desc?: string;
+  icon?: typeof Shield;
 }
 
 interface SiteHeaderProps {
@@ -34,12 +39,13 @@ interface SiteHeaderProps {
   showAnchorLinks?: boolean;
   /** Active tool label shown in breadcrumb on sub-pages */
   breadcrumb?: string;
+  /** In-page anchor for the header CTA when the page embeds the remover. */
+  toolAnchor?: string;
 }
 
 const anchorLinks: NavLink[] = [
-  { label: "Features", href: "#features" },
-  { label: "How It Works", href: "#how-it-works" },
-  { label: "Compare", href: "#comparison" },
+  { label: "What It Removes", href: "#features" },
+  { label: "Limits", href: "#what-stays" },
   { label: "FAQ", href: "#faq" },
 ];
 
@@ -50,11 +56,36 @@ const toolLinks: NavLink[] = [
 
 const guideLinks: NavLink[] = [
   {
-    label: "Remove AI Content Credentials",
+    label: "Remove Content Credentials (C2PA)",
     href: "/remove-ai-content-credentials",
+    desc: "Check and remove C2PA manifests",
+    icon: Shield,
   },
-  { label: "Image Metadata Remover", href: "/image-metadata-remover" },
-  { label: "Blog", href: "/blog", match: "prefix" },
+  {
+    label: "Remove EXIF and GPS",
+    href: "/image-metadata-remover",
+    desc: "Privacy cleaning for photos",
+    icon: FileText,
+  },
+  {
+    label: "Metadata by AI generator",
+    href: "/ai-generator-metadata",
+    desc: "ChatGPT, Gemini, Midjourney and more",
+    icon: Layers,
+  },
+  {
+    label: "AI labels by platform",
+    href: "/platform-ai-labels",
+    desc: "Instagram, TikTok, LinkedIn, Pinterest",
+    icon: Globe,
+  },
+  {
+    label: "HEIC to JPG",
+    href: "/heic-to-jpg",
+    desc: "Convert iPhone photos without GPS",
+    icon: ImageIcon,
+  },
+  { label: "Blog", href: "/blog", match: "prefix", desc: "Guides and explainers", icon: BookOpen },
 ];
 
 const repoUrl = "https://github.com/BrittAbdula/blankai-app";
@@ -62,6 +93,7 @@ const repoUrl = "https://github.com/BrittAbdula/blankai-app";
 export default function SiteHeader({
   showAnchorLinks = false,
   breadcrumb,
+  toolAnchor,
 }: SiteHeaderProps) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -210,12 +242,7 @@ export default function SiteHeader({
               <div className="pointer-events-none absolute right-0 top-full mt-2 w-72 translate-y-1 rounded-xl border border-border/70 bg-background/98 p-2 opacity-0 shadow-xl shadow-black/20 backdrop-blur-md transition-all duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100">
                 {guideLinks.map(link => {
                   const isActive = isLinkActive(link);
-                  const Icon =
-                    link.href === "/remove-ai-content-credentials"
-                      ? Shield
-                      : link.href === "/image-metadata-remover"
-                        ? FileText
-                        : BookOpen;
+                  const Icon = link.icon ?? BookOpen;
 
                   return (
                     <Link
@@ -230,13 +257,7 @@ export default function SiteHeader({
                       <Icon className="mt-0.5 h-4 w-4 flex-shrink-0" />
                       <div>
                         <div className="text-sm font-medium">{link.label}</div>
-                        <div className="text-[11px] opacity-70">
-                          {link.href === "/remove-ai-content-credentials"
-                            ? "Focused page for content credentials"
-                            : link.href === "/image-metadata-remover"
-                              ? "Broader metadata cleaning guide"
-                              : "Educational guides and explainers"}
-                        </div>
+                        <div className="text-[11px] opacity-70">{link.desc}</div>
                       </div>
                     </Link>
                   );
@@ -259,13 +280,13 @@ export default function SiteHeader({
             </a>
 
             {/* CTA */}
-            {isHome ? (
+            {isHome || toolAnchor ? (
               <a
-                href="#upload"
+                href={isHome ? "#upload" : toolAnchor}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg gradient-cyan text-navy font-semibold text-sm hover:opacity-90 transition-opacity"
               >
                 <Zap className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Try Free</span>
+                <span className="hidden sm:inline">{isHome ? "Try Free" : "Remove Metadata"}</span>
                 <span className="sm:hidden">Try</span>
               </a>
             ) : (
@@ -458,21 +479,9 @@ export default function SiteHeader({
             <p className="text-[10px] font-mono-custom text-muted-foreground/50 uppercase tracking-wider px-3 mb-2">
               Guides
             </p>
-            {[
-              {
-                href: "/remove-ai-content-credentials",
-                label: "Remove AI Content Credentials",
-                icon: <Shield className="w-4 h-4" />,
-                desc: "Focused C2PA and provenance page",
-              },
-              {
-                href: "/image-metadata-remover",
-                label: "Image Metadata Remover",
-                icon: <FileText className="w-4 h-4" />,
-                desc: "Broad metadata cleaning guide",
-              },
-            ].map(link => {
+            {guideLinks.filter(link => link.href !== "/blog").map(link => {
               const isActive = location === link.href;
+              const Icon = link.icon ?? BookOpen;
 
               return (
                 <Link
@@ -486,7 +495,7 @@ export default function SiteHeader({
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    {link.icon}
+                    <Icon className="w-4 h-4" />
                     <div>
                       <div>{link.label}</div>
                       <div className="text-[10px] opacity-60">{link.desc}</div>

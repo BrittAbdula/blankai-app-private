@@ -156,26 +156,56 @@ function TableOfContents({ sections }: { sections: BlogSection[] }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function BlogPostPage() {
   const params = useParams<{ slug: string }>();
-  const slug = params.slug;
-  const [post, setPost] = useState<BlogPost | null | undefined>(undefined);
+  const post = getPostBySlug(params.slug) ?? null;
   const [readProgress, setReadProgress] = useState(0);
 
-  useEffect(() => {
-    const found = getPostBySlug(slug);
-    setPost(found || null);
-    // Reset progress on slug change
-    setReadProgress(0);
-  }, [slug]);
-
-  // Dynamic canonical + meta per article
   usePageMeta({
-    title: post ? `${post.title} | BlankAI Blog` : "BlankAI Blog",
-    description: post?.description ?? "Plain-language guides on content credentials, AI metadata, C2PA, EXIF data, and hidden image metadata.",
-    canonical: post ? `https://blankai.app/blog/${post.slug}` : "https://blankai.app/blog",
-    ogTitle: post ? `${post.title} | BlankAI Blog` : "BlankAI Blog",
-    ogDescription: post?.description,
+    // Long headlines drop the brand suffix so the title stays readable in results.
+    title: post ? (post.title.length > 56 ? post.title : `${post.title} | BlankAI`) : "Article not found | BlankAI",
+    description:
+      post?.description ??
+      "Plain-language guides on AI metadata, C2PA Content Credentials, SynthID, EXIF and AI labeling rules.",
+    canonical: post ? `/blog/${post.slug}` : "/blog",
     ogImage: post?.coverImage,
+    ogType: post ? "article" : "website",
+    robots: post ? undefined : "noindex, follow",
+    jsonLd: post
+      ? [
+          {
+            "@type": "BlogPosting",
+            headline: post.title,
+            description: post.description,
+            datePublished: post.dateISO,
+            dateModified: post.dateModifiedISO ?? post.dateISO,
+            image: post.coverImage ? `https://blankai.app${post.coverImage}` : undefined,
+            author: { "@type": "Organization", name: post.author.name, url: "https://blankai.app" },
+            publisher: {
+              "@type": "Organization",
+              name: "BlankAI",
+              url: "https://blankai.app",
+              logo: { "@type": "ImageObject", url: "https://blankai.app/images/icon-512.png" },
+            },
+            mainEntityOfPage: { "@type": "WebPage", "@id": `https://blankai.app/blog/${post.slug}` },
+            keywords: post.tags.join(", "),
+            inLanguage: "en-US",
+            isPartOf: { "@type": "Blog", name: "BlankAI Blog", url: "https://blankai.app/blog" },
+            citation: post.sources?.map((source) => source.href),
+          },
+          {
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "Home", item: "https://blankai.app/" },
+              { "@type": "ListItem", position: 2, name: "Blog", item: "https://blankai.app/blog" },
+              { "@type": "ListItem", position: 3, name: post.title, item: `https://blankai.app/blog/${post.slug}` },
+            ],
+          },
+        ]
+      : undefined,
   });
+
+  useEffect(() => {
+    setReadProgress(0);
+  }, [params.slug]);
 
   // Reading progress scroll listener
   useEffect(() => {
@@ -188,23 +218,6 @@ export default function BlogPostPage() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  // Loading
-  if (post === undefined) {
-    return (
-      <div className="min-h-screen bg-background">
-        <SiteHeader breadcrumb="Blog" />
-        <div className="container pt-28 pb-10">
-          <div className="max-w-3xl mx-auto space-y-4">
-            <div className="h-8 w-3/4 rounded-lg bg-muted/40" style={{ animation: "shimmer 1.5s ease infinite" }} />
-            <div className="h-4 w-1/2 rounded bg-muted/30" style={{ animation: "shimmer 1.5s ease 0.1s infinite" }} />
-            <div className="h-64 rounded-xl bg-muted/20 mt-6" style={{ animation: "shimmer 1.5s ease 0.2s infinite" }} />
-          </div>
-        </div>
-        <SiteFooter />
-      </div>
-    );
-  }
 
   // 404
   if (post === null) {
@@ -242,34 +255,6 @@ export default function BlogPostPage() {
         aria-label="Reading progress"
       />
 
-      {/* SEO structured data */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": "BlogPosting",
-        "headline": post.title,
-        "description": post.description,
-        "datePublished": post.dateISO,
-        "dateModified": post.dateISO,
-        "author": {
-          "@type": "Person",
-          "name": post.author.name,
-          "jobTitle": post.author.title,
-          "description": post.author.bio,
-        },
-        "publisher": {
-          "@type": "Organization",
-          "name": "BlankAI",
-          "url": "https://blankai.app",
-          "logo": { "@type": "ImageObject", "url": "https://blankai.app/favicon.svg" }
-        },
-        "url": `https://blankai.app/blog/${post.slug}`,
-        "mainEntityOfPage": { "@type": "WebPage", "@id": `https://blankai.app/blog/${post.slug}` },
-        "keywords": post.tags.join(", "),
-        "timeRequired": `PT${post.readTime}M`,
-        "inLanguage": "en-US",
-        "isPartOf": { "@type": "Blog", "name": "BlankAI Blog", "url": "https://blankai.app/blog" }
-      })}} />
-
       <SiteHeader breadcrumb="Blog" />
 
       <article className="pt-24 pb-16">
@@ -299,24 +284,6 @@ export default function BlogPostPage() {
                   ))}
                 </div>
 
-                {/* Cover image banner */}
-                <div
-                  className="w-full h-52 rounded-xl mb-6 overflow-hidden relative"
-                  style={{ background: post.coverGradient }}
-                >
-                  {post.coverImage && (
-                    <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover" />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end p-5">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-3.5 h-3.5 text-white/70" />
-                      <span className="text-white/70 text-xs">{post.readTime} min read</span>
-                      <span className="text-white/50 text-xs">·</span>
-                      <span className="text-white/70 text-xs">{post.date}</span>
-                    </div>
-                  </div>
-                </div>
-
                 <h1 className="font-display font-black text-3xl md:text-4xl text-foreground leading-tight mb-5">
                   {post.title}
                 </h1>
@@ -333,7 +300,14 @@ export default function BlogPostPage() {
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="font-display font-semibold text-foreground text-sm">{post.author.name}</span>
                       <span className="text-muted-foreground text-xs">·</span>
-                      <span className="text-muted-foreground text-xs">{post.date}</span>
+                      <span className="text-muted-foreground text-xs">
+                        {post.readTime} min read · Published <time dateTime={post.dateISO}>{post.date}</time>
+                        {post.dateModified && (
+                          <>
+                            {" · "}Updated <time dateTime={post.dateModifiedISO}>{post.dateModified}</time>
+                          </>
+                        )}
+                      </span>
                     </div>
                     <p className="text-muted-foreground text-xs leading-relaxed">{post.author.title}</p>
                   </div>
@@ -349,6 +323,21 @@ export default function BlogPostPage() {
                   <RenderSection key={i} section={section} />
                 ))}
               </div>
+
+              {post.sources && post.sources.length > 0 && (
+                <div className="mt-10 rounded-xl border border-border/60 bg-card/30 p-5">
+                  <h2 className="font-display font-semibold text-foreground text-base mb-3">Sources</h2>
+                  <ol className="space-y-2 text-sm list-decimal pl-5 marker:text-cyan/60">
+                    {post.sources.map((source) => (
+                      <li key={source.href}>
+                        <a href={source.href} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-cyan">
+                          {source.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
 
               {/* Tags */}
               <div className="mt-10 pt-6 border-t border-border/50">
@@ -371,7 +360,7 @@ export default function BlogPostPage() {
                 <div className="flex flex-wrap gap-3">
                   {/* Twitter/X */}
                   <a
-                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}&url=${encodeURIComponent(`https://blankai.app/blog/${post.slug}`)}&hashtags=AIMetadata,UndetectableAI,BlankAI`}
+                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}&url=${encodeURIComponent(`https://blankai.app/blog/${post.slug}`)}&hashtags=ImageMetadata,C2PA`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1a1a1a] border border-white/10 text-white text-xs font-semibold hover:bg-[#2a2a2a] hover:border-white/20 transition-all"
@@ -406,7 +395,7 @@ export default function BlogPostPage() {
               <div className="mt-8 p-6 rounded-2xl border border-border/60 bg-card/40">
                 <div className="flex items-center gap-2 mb-4">
                   <User className="w-4 h-4 text-cyan" />
-                  <span className="font-display font-semibold text-foreground text-sm">About the Author</span>
+                  <span className="font-display font-semibold text-foreground text-sm">About the authors</span>
                 </div>
                 <div className="flex items-start gap-4">
                   <div className="w-14 h-14 rounded-full bg-gradient-to-br from-cyan/30 to-cyan/10 border border-cyan/30 flex items-center justify-center text-base font-bold text-cyan flex-shrink-0">
@@ -430,10 +419,10 @@ export default function BlogPostPage() {
                   <span className="font-display font-bold text-foreground text-sm">Try BlankAI Free</span>
                 </div>
                 <p className="text-muted-foreground text-xs leading-relaxed mb-4">
-                  Remove EXIF, C2PA, content credentials, and hidden image metadata in your browser with zero uploads.
+                  See and remove EXIF, GPS, C2PA and AI prompts in your browser. Nothing is uploaded, and every output is re-checked.
                 </p>
                 <ul className="space-y-1.5 mb-4">
-                  {["EXIF & GPS removal", "C2PA credential strip", "Fresh cleaned export", "HEIC / PNG / JPEG / WebP", "Up to 20 images at once"].map((f) => (
+                  {["EXIF and GPS removal", "C2PA manifest removal", "Output re-scan report", "HEIC, PNG, JPEG, WebP, AVIF", "Up to 20 images at once"].map((f) => (
                     <li key={f} className="flex items-center gap-2 text-xs text-muted-foreground">
                       <CheckCircle2 className="w-3 h-3 text-cyan flex-shrink-0" />
                       {f}
@@ -444,7 +433,7 @@ export default function BlogPostPage() {
                   href="/#upload"
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg gradient-cyan text-navy font-bold text-sm hover:opacity-90 transition-opacity"
                 >
-                  Remove Metadata Free
+                  Open the remover
                   <ArrowRight className="w-3.5 h-3.5" />
                 </a>
               </div>
@@ -456,7 +445,7 @@ export default function BlogPostPage() {
                   <span className="font-display font-semibold text-foreground text-sm">Image Diff Tool</span>
                 </div>
                 <p className="text-muted-foreground text-xs leading-relaxed mb-3">
-                  Compare original vs. cleaned images pixel-by-pixel. Verify that metadata has been removed.
+                  Compare an original and a cleaned copy pixel by pixel to see what re-encoding changed.
                 </p>
                 <Link
                   href="/image-diff"

@@ -1,1 +1,3 @@
-/* /index.html 200
+# Every route is prerendered to /<route>.html, which Cloudflare Pages serves at
+# /<route>. Unknown paths fall through to /404.html with a real 404 status.
+# (The old "/* /index.html 200" SPA fallback returned 200 for every URL.)

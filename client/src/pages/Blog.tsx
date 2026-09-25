@@ -15,11 +15,26 @@ export default function Blog() {
   const [activeCategory, setActiveCategory] = useState<string>("All");
 
   usePageMeta({
-    title: "Blog — AI Metadata Removal Guides & Tutorials | BlankAI",
-    description: "Plain-language guides on content credentials, AI metadata, C2PA, EXIF data, and hidden image metadata. Learn how to inspect and remove image metadata in your browser.",
-    canonical: "https://blankai.app/blog",
-    ogTitle: "BlankAI Blog — AI Metadata Removal Guides & Tutorials",
-    ogDescription: "Plain-language guides on content credentials, AI metadata, C2PA credentials, EXIF data, and hidden image metadata.",
+    title: "AI Metadata, C2PA & EXIF Guides | BlankAI Blog",
+    description:
+      "Plain-language guides on AI metadata, C2PA Content Credentials, SynthID, EXIF and AI labeling rules, checked against vendor docs and updated as they change.",
+    canonical: "/blog",
+    jsonLd: {
+      "@type": "Blog",
+      name: "BlankAI Blog",
+      url: "https://blankai.app/blog",
+      description: "Guides on AI metadata, C2PA Content Credentials, SynthID, EXIF and AI labeling rules.",
+      publisher: { "@type": "Organization", name: "BlankAI", url: "https://blankai.app" },
+      blogPost: blogPosts.map((p) => ({
+        "@type": "BlogPosting",
+        headline: p.title,
+        description: p.description,
+        datePublished: p.dateISO,
+        dateModified: p.dateModifiedISO ?? p.dateISO,
+        author: { "@type": "Organization", name: p.author.name },
+        url: `https://blankai.app/blog/${p.slug}`,
+      })),
+    },
   });
 
   const filtered = activeCategory === "All"
@@ -31,29 +46,6 @@ export default function Blog() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* SEO structured data */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": "Blog",
-        "name": "BlankAI Blog — AI Metadata Removal Guides",
-        "url": "https://blankai.app/blog",
-        "description": "Plain-language guides on content credentials, AI metadata, C2PA credentials, EXIF data, and hidden image metadata.",
-        "publisher": {
-          "@type": "Organization",
-          "name": "BlankAI",
-          "url": "https://blankai.app",
-          "logo": { "@type": "ImageObject", "url": "https://blankai.app/favicon.svg" }
-        },
-        "blogPost": blogPosts.map((p) => ({
-          "@type": "BlogPosting",
-          "headline": p.title,
-          "description": p.description,
-          "datePublished": p.dateISO,
-          "author": { "@type": "Person", "name": p.author.name, "jobTitle": p.author.title },
-          "url": `https://blankai.app/blog/${p.slug}`,
-        }))
-      })}} />
-
       <SiteHeader breadcrumb="Blog" />
 
       {/* ── Hero ── */}
@@ -65,11 +57,11 @@ export default function Blog() {
               <span className="text-cyan text-sm font-mono-custom tracking-wider uppercase">Knowledge Base</span>
             </div>
             <h1 className="font-display font-black text-4xl md:text-5xl text-foreground leading-tight mb-4">
-              AI Metadata & Content Credentials<br />
-              <span className="text-cyan">Guides & Tutorials</span>
+              AI Metadata, C2PA and EXIF{" "}<br />
+              <span className="text-cyan">Guides</span>
             </h1>
             <p className="text-muted-foreground text-lg leading-relaxed max-w-2xl">
-              Plain-language guides on content credentials, C2PA, EXIF data, and hidden image metadata from Midjourney, DALL-E, Stable Diffusion, and Adobe Firefly images. Written by researchers and engineers with hands-on experience.
+              Plain-language guides on AI metadata, C2PA Content Credentials, SynthID watermarks, EXIF and the rules on AI labels. Written by the team that builds BlankAI, with sources at the end of every article.
             </p>
           </div>
         </div>

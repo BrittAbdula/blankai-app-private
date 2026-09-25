@@ -1,24 +1,32 @@
 /**
- * usePageMeta — Dynamically sets canonical URL, og:url, page title, and meta description
- * for each page to ensure correct SEO signals on every route.
+ * usePageMeta: sets title, description, canonical, robots, Open Graph,
+ * Twitter tags and page JSON-LD for the current route.
  *
- * Usage:
- *   usePageMeta({
- *     title: "Image Diff Tool | BlankAI",
- *     description: "Compare images pixel-by-pixel...",
- *     canonical: "https://blankai.app/image-diff",
- *   });
+ * The prerender step (scripts/prerender.mjs) captures the result into static
+ * HTML, so every URL ships its own head tags without waiting for JavaScript.
  */
 import { useEffect } from "react";
+import { DEFAULT_OG_IMAGE, absoluteUrl } from "@/lib/site";
+
+type JsonLd = Record<string, unknown>;
 
 interface PageMetaOptions {
   title: string;
   description: string;
+  /** Absolute URL or site path such as "/exif-viewer". */
   canonical: string;
   ogTitle?: string;
   ogDescription?: string;
   ogImage?: string;
+  ogType?: "website" | "article";
+  /** Defaults to indexable. Use "noindex, follow" for 404 pages. */
+  robots?: string;
+  /** One or more schema.org nodes. They are wrapped in a single @graph. */
+  jsonLd?: JsonLd | JsonLd[];
 }
+
+const DEFAULT_ROBOTS = "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
+const JSONLD_ID = "page-jsonld";
 
 export function usePageMeta({
   title,
@@ -27,58 +35,57 @@ export function usePageMeta({
   ogTitle,
   ogDescription,
   ogImage,
+  ogType = "website",
+  robots = DEFAULT_ROBOTS,
+  jsonLd,
 }: PageMetaOptions) {
+  const jsonLdText = jsonLd
+    ? JSON.stringify({
+        "@context": "https://schema.org",
+        "@graph": Array.isArray(jsonLd) ? jsonLd : [jsonLd],
+      })
+    : "";
+
   useEffect(() => {
-    // --- Title ---
+    const url = absoluteUrl(canonical);
+    const image = ogImage ? absoluteUrl(ogImage) : DEFAULT_OG_IMAGE;
+
     document.title = title;
-
-    // --- Meta description ---
     setMeta("name", "description", description);
+    setMeta("name", "robots", robots);
 
-    // --- Canonical ---
     let canonicalEl = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
     if (!canonicalEl) {
       canonicalEl = document.createElement("link");
       canonicalEl.rel = "canonical";
       document.head.appendChild(canonicalEl);
     }
-    canonicalEl.href = canonical;
+    canonicalEl.href = url;
 
-    // --- og:url ---
-    setMeta("property", "og:url", canonical);
+    setMeta("property", "og:url", url);
+    setMeta("property", "og:type", ogType);
+    setMeta("property", "og:title", ogTitle ?? title);
+    setMeta("property", "og:description", ogDescription ?? description);
+    setMeta("property", "og:image", image);
+    setMeta("name", "twitter:title", ogTitle ?? title);
+    setMeta("name", "twitter:description", ogDescription ?? description);
+    setMeta("name", "twitter:image", image);
 
-    // --- og:title ---
-    if (ogTitle) setMeta("property", "og:title", ogTitle);
-
-    // --- og:description ---
-    if (ogDescription) setMeta("property", "og:description", ogDescription);
-
-    // --- og:image ---
-    if (ogImage) setMeta("property", "og:image", ogImage);
-
-    // --- twitter:title ---
-    if (ogTitle) setMeta("name", "twitter:title", ogTitle);
-
-    // --- twitter:description ---
-    if (ogDescription) setMeta("name", "twitter:description", ogDescription);
-
-    // Cleanup: restore homepage defaults when unmounting
-    return () => {
-      document.title =
-        "BlankAI — Remove AI Content Credentials & Image Metadata";
-      setMeta(
-        "name",
-        "description",
-        "Privacy-first image metadata remover. Strip EXIF, XMP, IPTC, GPS, and C2PA content credentials from images instantly in your browser with zero uploads."
-      );
-      const el = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
-      if (el) el.href = "https://blankai.app/";
-      setMeta("property", "og:url", "https://blankai.app/");
-    };
-  }, [title, description, canonical, ogTitle, ogDescription, ogImage]);
+    let script = document.getElementById(JSONLD_ID) as HTMLScriptElement | null;
+    if (jsonLdText) {
+      if (!script) {
+        script = document.createElement("script");
+        script.type = "application/ld+json";
+        script.id = JSONLD_ID;
+        document.head.appendChild(script);
+      }
+      script.textContent = jsonLdText;
+    } else if (script) {
+      script.remove();
+    }
+  }, [title, description, canonical, ogTitle, ogDescription, ogImage, ogType, robots, jsonLdText]);
 }
 
-// Helper to find or create a meta tag and set its content
 function setMeta(attrName: "name" | "property", attrValue: string, content: string) {
   let el = document.querySelector<HTMLMetaElement>(`meta[${attrName}="${attrValue}"]`);
   if (!el) {
