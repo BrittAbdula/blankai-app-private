@@ -13,7 +13,7 @@ import SiteFooter from "@/components/SiteFooter";
 
 export default function TermsOfService() {
   usePageMeta({
-    title: "Terms of Service | BlankAI — AI Metadata Remover",
+    title: "Terms of Service | BlankAI",
     description: "BlankAI Terms of Service. Free browser-based AI metadata remover. Read our usage terms, intellectual property policy, and liability disclaimer.",
     canonical: "https://blankai.app/terms",
     ogTitle: "Terms of Service | BlankAI",
@@ -24,8 +24,8 @@ export default function TermsOfService() {
     window.scrollTo(0, 0);
   }, []);
 
-  const lastUpdated = "March 11, 2025";
-  const effectiveDate = "March 11, 2025";
+  const lastUpdated = "September 25, 2026";
+  const effectiveDate = "September 25, 2026";
   const contactEmail = "support@blankai.app";
   const siteUrl = "https://blankai.app";
 
@@ -79,7 +79,7 @@ export default function TermsOfService() {
 
           <Section id="description" title="2. Description of Service">
             <p>
-              BlankAI provides a free, browser-based tool that allows users to remove metadata (including EXIF data, GPS tags, C2PA content credentials, XMP/IPTC data, and AI-specific signatures) from digital images and modify pixel-level fingerprints. All processing occurs entirely within the user's web browser; no images are transmitted to or stored on our servers.
+              BlankAI provides a free, browser-based tool that allows users to remove metadata (including EXIF data, GPS tags, C2PA content credentials, XMP/IPTC data, and AI-specific signatures) from digital images, inspect metadata, and compare images. It does not remove invisible watermarks embedded in image pixels (such as SynthID) or visible watermarks. All processing occurs entirely within the user's web browser; no images are transmitted to or stored on our servers.
             </p>
             <p>
               The Service is provided "as is" and "as available." We reserve the right to modify, suspend, or discontinue any aspect of the Service at any time without notice.
@@ -112,7 +112,8 @@ export default function TermsOfService() {
             <ul>
               <li><strong className="text-foreground">Copyright Infringement:</strong> Removing metadata from images you do not own or do not have the right to modify, particularly where such metadata constitutes copyright management information protected under the Digital Millennium Copyright Act (DMCA) or equivalent laws.</li>
               <li><strong className="text-foreground">Fraud or Deception:</strong> Using processed images to deceive others about the origin, authenticity, or provenance of content in a manner that constitutes fraud, misrepresentation, or defamation.</li>
-              <li><strong className="text-foreground">Platform Violations:</strong> Using the Service to circumvent the terms of service of other platforms in ways that violate those platforms' policies.</li>
+              <li><strong className="text-foreground">Platform Violations:</strong> Using the Service to circumvent the terms of service of other platforms in ways that violate those platforms' policies, including their rules on disclosing AI-generated content.</li>
+              <li><strong className="text-foreground">Unlawful Label Removal:</strong> Removing AI-generated content labels where the law prohibits it (for example, under China's Measures for Labeling AI-Generated Synthetic Content), or in breach of the terms of the service that generated the content.</li>
               <li><strong className="text-foreground">Illegal Content:</strong> Processing images that contain illegal content, including but not limited to child sexual abuse material (CSAM), non-consensual intimate imagery, or content that violates applicable laws.</li>
               <li><strong className="text-foreground">Malicious Activity:</strong> Attempting to reverse-engineer, scrape, overload, or otherwise interfere with the Service or its infrastructure.</li>
               <li><strong className="text-foreground">Automated Abuse:</strong> Using automated scripts, bots, or crawlers to access the Service in a manner that exceeds reasonable personal use.</li>

@@ -12,7 +12,7 @@ import SiteFooter from "@/components/SiteFooter";
 
 export default function PrivacyPolicy() {
   usePageMeta({
-    title: "Privacy Policy | BlankAI — AI Metadata Remover",
+    title: "Privacy Policy | BlankAI",
     description:
       "BlankAI Privacy Policy. We never store, upload, or access your images. All processing is 100% browser-based. Learn how we protect your privacy.",
     canonical: "https://blankai.app/privacy",
@@ -25,8 +25,8 @@ export default function PrivacyPolicy() {
     window.scrollTo(0, 0);
   }, []);
 
-  const lastUpdated = "March 11, 2025";
-  const effectiveDate = "March 11, 2025";
+  const lastUpdated = "September 25, 2026";
+  const effectiveDate = "September 25, 2026";
   const contactEmail = "support@blankai.app";
   const siteUrl = "https://blankai.app";
 
@@ -79,14 +79,14 @@ export default function PrivacyPolicy() {
             {
               icon: Eye,
               title: "Minimal Data Collection",
-              desc: "We only collect anonymous analytics (page views, feature usage) to improve the product. No personal data.",
+              desc: "We use Google Analytics for page views and product events. Events never contain your images or their metadata.",
               color: "text-cyan",
               bg: "bg-cyan/5 border-cyan/20",
             },
             {
               icon: Trash2,
-              title: "No Data Retention",
-              desc: "We don't store cookies beyond session, don't build user profiles, and don't sell any data to third parties.",
+              title: "No Selling of Data",
+              desc: "We don't sell or share data for advertising, and we don't build user profiles.",
               color: "text-blue-400",
               bg: "bg-blue-500/5 border-blue-500/20",
             },
@@ -144,8 +144,8 @@ export default function PrivacyPolicy() {
                 HTML5 File API.
               </li>
               <li>
-                All processing (Canvas rendering, pixel modification, hash
-                computation) occurs locally on your device.
+                All processing (metadata scanning, canvas rendering, encoding
+                and hash computation) occurs locally on your device.
               </li>
               <li>
                 The processed image is returned to you as a downloadable file
@@ -173,44 +173,33 @@ export default function PrivacyPolicy() {
 
             <SubSection title="3.1 Analytics Data">
               <p>
-                We use privacy-respecting analytics (Umami Analytics) to collect
-                anonymous usage statistics, including: pages visited, features
-                used, browser type, operating system, screen resolution, and
-                country-level geographic data (derived from IP address, which is
-                not stored). This data is aggregated and cannot be used to
-                identify individual users. We do not use Google Analytics or any
-                advertising-based analytics platform.
+                We use Google Analytics 4 to understand how the Service is used.
+                It records pages visited, referring pages, approximate location
+                (country or city level, derived from your IP address), device and
+                browser type, and product events such as &quot;images
+                processed&quot;, &quot;download clicked&quot; or &quot;metadata
+                types found&quot; (for example, whether a GPS block was present).
+                These events never include your images, file names, or the
+                contents of any metadata. Google Analytics uses cookies to
+                distinguish visits; see Section 4. You can opt out with Google&apos;s
+                browser add-on at tools.google.com/dlpage/gaoptout or by blocking
+                cookies for this site. If we enable an additional
+                privacy-focused analytics service in the future, it will be
+                listed in Section 5.
               </p>
             </SubSection>
 
-            <SubSection title="3.2 Waitlist Email Addresses">
+            <SubSection title="3.2 Request Data">
               <p>
-                If you voluntarily submit your email address to join our product
-                waitlist, we collect and store that email address for the sole
-                purpose of notifying you when new features or products launch.
-                We will never share your email with third parties, and you may
-                request deletion at any time by emailing{" "}
-                <a
-                  href={`mailto:${contactEmail}`}
-                  className="text-cyan hover:underline"
-                >
-                  {contactEmail}
-                </a>
-                .
+                The site is hosted on Cloudflare Pages. Cloudflare processes
+                standard request data, such as IP address, browser type,
+                requested URL and timestamps, to deliver the site and protect it
+                from abuse. We do not run our own application servers and do not
+                build personal profiles from this data.
               </p>
             </SubSection>
 
-            <SubSection title="3.3 Log Data">
-              <p>
-                Our web server automatically records standard server log
-                information when you access the Service, including your IP
-                address, browser type, referring URL, and timestamps. This data
-                is retained for up to 30 days for security and debugging
-                purposes and is not linked to any personal profile.
-              </p>
-            </SubSection>
-
-            <SubSection title="3.4 Local Storage">
+            <SubSection title="3.3 Local Storage">
               <p>
                 BlankAI uses your browser's <code>localStorage</code> and{" "}
                 <code>sessionStorage</code> to temporarily store processing
@@ -224,9 +213,8 @@ export default function PrivacyPolicy() {
 
           <Section id="cookies" title="4. Cookies">
             <p>
-              BlankAI uses minimal cookies. We do not use advertising cookies,
-              tracking pixels, or third-party marketing cookies. The only
-              cookies set are:
+              BlankAI does not use advertising or marketing cookies. The cookies
+              set on this site are:
             </p>
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
@@ -245,13 +233,11 @@ export default function PrivacyPolicy() {
                 </thead>
                 <tbody className="text-muted-foreground">
                   <tr className="border-b border-border/50">
-                    <td className="py-2 pr-4 font-mono text-xs">
-                      umami.session
-                    </td>
+                    <td className="py-2 pr-4 font-mono text-xs">_ga, _ga_*</td>
                     <td className="py-2 pr-4">
-                      Anonymous analytics session identifier
+                      Google Analytics: distinguishes visits and sessions
                     </td>
-                    <td className="py-2">Session</td>
+                    <td className="py-2">Up to 2 years</td>
                   </tr>
                   <tr>
                     <td className="py-2 pr-4 font-mono text-xs">theme</td>
@@ -293,9 +279,12 @@ export default function PrivacyPolicy() {
                     <td className="py-2">IP address, request metadata</td>
                   </tr>
                   <tr className="border-b border-border/50">
-                    <td className="py-2 pr-4">Umami Analytics</td>
-                    <td className="py-2 pr-4">Anonymous usage analytics</td>
-                    <td className="py-2">Anonymized page views, no PII</td>
+                    <td className="py-2 pr-4">Google Analytics</td>
+                    <td className="py-2 pr-4">Usage analytics</td>
+                    <td className="py-2">
+                      IP address, device and browser data, pages visited,
+                      product events (never images or metadata contents)
+                    </td>
                   </tr>
                   <tr className="border-b border-border/50">
                     <td className="py-2 pr-4">Google Fonts</td>
@@ -322,9 +311,9 @@ export default function PrivacyPolicy() {
               your local processing environment.
             </p>
             <p>
-              For the limited data we do collect (analytics, email waitlist), we
-              apply industry-standard security practices including access
-              controls, encryption at rest, and regular security reviews.
+              For the limited data that is collected (analytics and request
+              data), we rely on the security practices of Google and Cloudflare
+              and restrict account access to the people who run BlankAI.
             </p>
           </Section>
 
@@ -356,8 +345,7 @@ export default function PrivacyPolicy() {
               </li>
               <li>
                 <strong className="text-foreground">Right to Erasure:</strong>{" "}
-                Request deletion of your personal data (e.g., email waitlist
-                removal).
+                Request deletion of personal data associated with you.
               </li>
               <li>
                 <strong className="text-foreground">
@@ -393,10 +381,9 @@ export default function PrivacyPolicy() {
               For users in the European Economic Area (EEA), our legal basis for
               processing analytics data is{" "}
               <strong className="text-foreground">legitimate interests</strong>{" "}
-              (improving the Service) under Article 6(1)(f) of the GDPR. For
-              email waitlist data, our legal basis is{" "}
-              <strong className="text-foreground">consent</strong> under Article
-              6(1)(a).
+              (improving the Service) under Article 6(1)(f) of the GDPR. You
+              can object at any time by blocking analytics cookies or using the
+              opt-out described in Section 3.1.
             </p>
             <p>
               For California residents under the California Consumer Privacy Act
